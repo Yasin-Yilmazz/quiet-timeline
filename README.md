@@ -12,7 +12,6 @@ X/Twitter web anasayfasından reklamları ve **takip etmediğiniz ücretli mavi 
 |---|---|
 | Reklam / sponsorlu girdi (`entryId` `promoted-` ile başlar ya da `promotedMetadata` var) | Kaldırılır. Yazarın kim olduğu önemli değildir. |
 | Yazar `is_blue_verified === true` **ve** `verified_type` yok **ve** onu takip etmiyorsunuz **ve** yazar siz değilsiniz | Kaldırılır |
-| Takip etmediğiniz biri, yukarıdaki kurala uyan bir mavi tikliyi **alıntılıyor** | Alıntı kutusuyla birlikte tüm gönderi kaldırılır |
 
 **Kaldırmaz:**
 
@@ -20,7 +19,7 @@ X/Twitter web anasayfasından reklamları ve **takip etmediğiniz ücretli mavi 
 - Takip ettiğiniz mavi tikliler ve tiksiz hesaplar
 - Kendi gönderileriniz
 - **Retweet:** Takip ettiğiniz biri mavi tikliyi RT'lerse görünür kalır. Karar her zaman RT'yi yapan kişiye göre verilir.
-- **Alıntı:** Takip ettiğiniz biri mavi tikliyi alıntılarsa hem gönderi hem alıntı kutusu görünür kalır. Takip etmediğiniz biri; takip ettiğiniz bir mavi tikliyi, altın/gri tikli bir hesabı ya da sizi alıntılarsa da gönderi kalır.
+- **Alıntı:** Takip ettiğiniz biri mavi tikliyi alıntılarsa hem gönderi hem alıntı kutusu görünür kalır.
 - **Emin olunamayan durumlar (fail-open):** Takip bilgisi ya da tik alanı eksikse, X yanıtın biçimini değiştirdiyse veya kendi kullanıcı kimliğiniz tespit edilemezse gönderi **gösterilir**. Kimliğiniz bulunamazsa yalnızca reklamlar kaldırılır.
 
 **Konuşma modülleri** (anasayfadaki yanıt zincirleri): Her öğe ayrı değerlendirilir ve yalnızca kurala uyan yanıtlar çıkarılır. Zincirin ilk öğesi çıkarılırsa ya da zincirde öğe kalmazsa modülün tamamı kaldırılır.
@@ -116,7 +115,6 @@ Quiet Timeline cleans up your home timeline on the X/Twitter website.
 What it removes:
 • All promoted posts (ads)
 • Posts from paid blue-check accounts that you do not follow
-• Quotes of such accounts by people you do not follow
 
 What it keeps:
 • Accounts you follow (blue check or not)
@@ -191,11 +189,11 @@ DOM yedek katmanı yalnızca `/home` yolunda çalışır. API filtresinden kaça
 
 ### Hata ayıklama
 
-`src/inject.js` dosyasında `const DEBUG = true;` yapın, yeniden derleyip eklentiyi yenileyin. Konsolda `[Quiet Timeline]` önekiyle her cevapta kaç girdinin, hangi nedenle (`promoted`, `blue-unfollowed`, `quote-of-blue`, `module-root-removed`, `module-empty`) kaldırıldığı görünür.
+`src/inject.js` dosyasında `const DEBUG = true;` yapın, yeniden derleyip eklentiyi yenileyin. Konsolda `[Quiet Timeline]` önekiyle her cevapta kaç girdinin, hangi nedenle (`promoted`, `blue-unfollowed`, `module-root-removed`, `module-empty`) kaldırıldığı görünür.
 
 ### Test sonuçları
 
-`npm test` komutu 62 test çalıştırır ve hepsi geçer. Kapsanan durumlar: takip edilen ve edilmeyen mavi tik, altın tik, gri tik, tiksiz hesap, iki tür reklam, RT, alıntı (takip edilen/edilmeyen alıntılayan, sarmalayıcılı alıntı), TweetWithVisibilityResults, konuşma modülleri (kısmi ve tamamen kaldırma), PinEntry, AddToModule, kendi tweetiniz, eksik alanlar, eski ve yeni şema, bozuk girdiler, fetch/XHR yamaları ve manifest kuralları.
+`npm test` komutu 55 test çalıştırır ve hepsi geçer. Kapsanan durumlar: takip edilen ve edilmeyen mavi tik, altın tik, gri tik, tiksiz hesap, iki tür reklam, RT, alıntı, TweetWithVisibilityResults, konuşma modülleri (kısmi ve tamamen kaldırma), PinEntry, AddToModule, kendi tweetiniz, eksik alanlar, eski ve yeni şema, bozuk girdiler, fetch/XHR yamaları ve manifest kuralları.
 
 ### Gerçek oturumda elle doğrulama
 

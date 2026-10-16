@@ -59,13 +59,6 @@ test('Sana özel: her kural için beklenen sonuç', async (t) => {
   await kept('tweet-1019', 'kaynaklardan biri following=true');
   await gone('tweet-1020', REASON.BLUE, 'alternatif yerleşim core.user_result');
   await kept('tweet-1021', 'UserUnavailable yazar');
-  await gone('tweet-1022', REASON.QUOTE, 'takip etmediğimin yabancı maviyi alıntılaması');
-  await kept('tweet-1023', 'takip etmediğimin takip ettiğim maviyi alıntılaması');
-  await kept('tweet-1024', 'takip etmediğimin altın tiki alıntılaması');
-  await gone('tweet-1025', REASON.QUOTE, 'alıntı TweetWithVisibilityResults içinde yabancı mavi');
-  await kept('tweet-1026', 'takip etmediğimin beni alıntılaması');
-  await kept('tweet-1027', 'alıntılayanın takip bilgisi yok (fail-open)');
-  await gone('tweet-1028', REASON.BLUE, 'yabancı mavinin kendisi alıntı yapsa da dış yazar kuralı');
   await kept('who-to-follow-3001', 'tweet olmayan modüller');
   await t.test('imleçler korunur', () => {
     assert.equal(ids.filter((id) => id.startsWith('cursor-')).length, 2);
@@ -94,7 +87,7 @@ test('Sana özel: her kural için beklenen sonuç', async (t) => {
   await gone('home-conversation-2101', REASON.MODULE_ROOT, 'ilk öğesi çıkan konuşma modülü bütünüyle');
 
   await t.test('toplam kaldırma sayısı', () => {
-    assert.equal(removed.length, 12);
+    assert.equal(removed.length, 9);
   });
 });
 

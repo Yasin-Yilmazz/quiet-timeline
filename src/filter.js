@@ -15,7 +15,6 @@ const TARGET_URL_RE = /\/graphql\/[^/?#]+\/(HomeTimeline|HomeLatestTimeline)(?:[
 const REASON = {
   PROMOTED: 'promoted',
   BLUE: 'blue-unfollowed',
-  QUOTE: 'quote-of-blue',
   MODULE_ROOT: 'module-root-removed',
   MODULE_EMPTY: 'module-empty',
 };
@@ -114,12 +113,6 @@ function followState(user) {
   return 'unknown';
 }
 
-// Alıntılanan tweet (sarmalayıcı açılmış halde).
-function getQuoted(tweet) {
-  const q = tweet.quoted_status_result || (isObj(tweet.legacy) ? tweet.legacy.quoted_status_result : undefined);
-  return isObj(q) ? unwrapTweet(q.result) : null;
-}
-
 // Ben değilim, ücretli mavi tik (altın/gri değil) ve açıkça takip etmiyorum.
 function isUnfollowedBlue(user, ctx) {
   const id = getUserId(user);
@@ -147,16 +140,7 @@ function evaluateItem(itemContent, entryId, ctx) {
   const id = getUserId(user);
   if (!ctx.selfId || !id || id === ctx.selfId) return null;
 
-  if (isUnfollowedBlue(user, ctx)) return REASON.BLUE;
-
-  // Takip etmediğim biri, takip etmediğim mavi tikliyi alıntılıyorsa.
-  // Alıntılayanı takip ediyorsam (veya takip bilgisi yoksa) tweet kalır.
-  if (followState(user) === 'no') {
-    const quoted = getQuoted(tweet);
-    const qUser = quoted && getAuthor(quoted);
-    if (qUser && isUnfollowedBlue(qUser, ctx)) return REASON.QUOTE;
-  }
-  return null;
+  return isUnfollowedBlue(user, ctx) ? REASON.BLUE : null;
 }
 
 // Bir timeline girdisini değerlendirir.
