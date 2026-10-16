@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { filterTimeline, filterTimelineDetailed, isTargetUrl, REASON } = require('../src/filter');
+const { filterTimeline, filterTimelineDetailed, decideDisplay, isTargetUrl, REASON } = require('../src/filter');
 
 const FIX = path.join(__dirname, 'fixtures');
 const load = (name) => JSON.parse(fs.readFileSync(path.join(FIX, name), 'utf8'));
@@ -25,85 +25,132 @@ function entry(json, id) {
 
 // ------------------------------------------------------------ Sana özel
 
-test('Sana özel: her kural için beklenen sonuç', async (t) => {
-  const input = load('home-timeline.json');
-  const { json: out, removed } = filterTimelineDetailed(input, { selfId: SELF });
-  const ids = entryIds(out);
-  const reasons = Object.fromEntries(removed.map((r) => [r.entryId, r.reason]));
+const flaggedFirstIds = (flagged) => flagged.map((f) => f.tweetIds[0]);
 
-  const kept = (id, why) => t.test(`görünür: ${why}`, () => assert.ok(ids.includes(id), `${id} kalmalıydı`));
-  const gone = (id, reason, why) =>
+test('Sana özel: reklamlar kalkar, takip edilmeyen mavi tikliler işaretlenir', async (t) => {
+  const input = load('home-timeline.json');
+  const { json: out, removed, flagged } = filterTimelineDetailed(input, { selfId: SELF });
+  const ids = entryIds(out);
+  const flaggedIds = flaggedFirstIds(flagged);
+
+  const kept = (id, why) => t.test(`görünür: ${why}`, () => {
+    assert.ok(ids.includes(id), `${id} kalmalıydı`);
+    assert.ok(!flaggedIds.includes(id.replace('tweet-', '')), `${id} işaretlenmemeliydi`);
+  });
+  const collapsed = (id, userId, why) =>
+    t.test(`kapalı gösterilir: ${why}`, () => {
+      const tid = id.replace(/^.*tweet-/, '');
+      const f = flagged.find((x) => x.tweetIds[0] === tid);
+      assert.ok(f, `${id} işaretlenmeliydi`);
+      assert.equal(f.userId, userId);
+    });
+  const gone = (id, why) =>
     t.test(`kaldırıldı: ${why}`, () => {
       assert.ok(!ids.includes(id), `${id} kaldırılmalıydı`);
-      assert.equal(reasons[id], reason);
+      assert.equal(removed.find((r) => r.entryId === id).reason, REASON.PROMOTED);
     });
 
   await kept('tweet-1001', 'takip ettiğim mavi tikli');
-  await gone('tweet-1002', REASON.BLUE, 'takip etmediğim mavi tikli');
+  await collapsed('tweet-1002', '202', 'takip etmediğim mavi tikli');
   await kept('tweet-1003', 'altın tik (Business)');
   await kept('tweet-1004', 'gri tik (Government)');
   await kept('tweet-1005', 'tiksiz hesap');
-  await gone('promoted-tweet-1006-a1b2c3', REASON.PROMOTED, 'reklam (entryId promoted-)');
-  await gone('tweet-1007', REASON.PROMOTED, 'reklam (promotedMetadata, yazar takip edilen mavi olsa bile)');
+  await gone('promoted-tweet-1006-a1b2c3', 'reklam (entryId promoted-)');
+  await gone('tweet-1007', 'reklam (promotedMetadata, yazar takip edilen mavi olsa bile)');
   await kept('tweet-1008', 'takip ettiğimin mavi tikliyi RT etmesi');
   await kept('tweet-1009', 'takip ettiğimin mavi tikliyi alıntılaması');
-  await gone('tweet-1010', REASON.BLUE, 'TweetWithVisibilityResults içindeki yabancı mavi');
+  await collapsed('tweet-1010', '202', 'TweetWithVisibilityResults içindeki yabancı mavi');
   await kept('tweet-1011', 'TweetWithVisibilityResults içindeki takip ettiğim mavi');
   await kept('tweet-1012', 'kendi tweetim');
   await kept('tweet-1013', 'alanları eksik kullanıcı (fail-open)');
   await kept('tweet-1014', 'mavi ama takip alanı yok (fail-open)');
   await kept('tweet-1015', 'core alanı yok (fail-open)');
   await kept('tweet-1016', 'tombstone');
-  await gone('tweet-1017', REASON.BLUE, 'eski şema: legacy.following=false + legacy.id_str');
-  await gone('tweet-1018', REASON.BLUE, 'yalnız relationship_perspectives.following=false');
+  await collapsed('tweet-1017', '204', 'eski şema: legacy.following=false + legacy.id_str');
+  await collapsed('tweet-1018', '203', 'yalnız relationship_perspectives.following=false');
   await kept('tweet-1019', 'kaynaklardan biri following=true');
-  await gone('tweet-1020', REASON.BLUE, 'alternatif yerleşim core.user_result');
+  await collapsed('tweet-1020', '202', 'alternatif yerleşim core.user_result');
   await kept('tweet-1021', 'UserUnavailable yazar');
   await kept('who-to-follow-3001', 'tweet olmayan modüller');
   await t.test('imleçler korunur', () => {
     assert.equal(ids.filter((id) => id.startsWith('cursor-')).length, 2);
   });
 
-  await t.test('RT: içteki retweeted_status_result dokunulmadan kalır', () => {
-    const rt = entry(out, 'tweet-1008').content.itemContent.tweet_results.result;
-    assert.ok(rt.legacy.retweeted_status_result.result.rest_id === '1108');
-  });
-  await t.test('Alıntı: quoted_status_result kutusu dokunulmadan kalır', () => {
-    const q = entry(out, 'tweet-1009').content.itemContent.tweet_results.result;
-    assert.equal(q.quoted_status_result.result.rest_id, '1109');
-  });
-
-  await t.test('konuşma modülü: yalnız mavi tikli yanıt çıkarılır', () => {
-    const mod = entry(out, 'home-conversation-2001');
-    assert.ok(mod, 'modül kalmalı');
+  await t.test('konuşma modülleri olduğu gibi kalır, mavi tikli öğeler işaretlenir', () => {
     assert.deepEqual(
-      mod.content.items.map((i) => i.entryId),
-      ['home-conversation-2001-tweet-2001', 'home-conversation-2001-tweet-2003']
+      entry(out, 'home-conversation-2001').content.items.map((i) => i.entryId),
+      ['home-conversation-2001-tweet-2001', 'home-conversation-2001-tweet-2002', 'home-conversation-2001-tweet-2003']
     );
-    const r = removed.find((x) => x.entryId === 'home-conversation-2001-tweet-2002');
-    assert.equal(r.reason, REASON.BLUE);
-    assert.equal(r.module, 'home-conversation-2001');
+    assert.ok(entry(out, 'home-conversation-2101'));
+    assert.ok(flaggedIds.includes('2002'));
+    assert.ok(flaggedIds.includes('2101'));
   });
-  await gone('home-conversation-2101', REASON.MODULE_ROOT, 'ilk öğesi çıkan konuşma modülü bütünüyle');
 
-  await t.test('toplam kaldırma sayısı', () => {
-    assert.equal(removed.length, 9);
+  await t.test('işaret kaydı: kullanıcı adı ve görünen ad', () => {
+    const f = flagged.find((x) => x.tweetIds[0] === '1002');
+    assert.equal(f.screenName, 'yabanci_mavi');
+    assert.equal(f.name, 'Yabancı Mavi');
+    const legacy = flagged.find((x) => x.tweetIds[0] === '1017');
+    assert.equal(legacy.screenName, 'yabanci_mavi_eski');
   });
+
+  await t.test('toplamlar: 2 reklam kaldırıldı, 7 tweet işaretlendi', () => {
+    assert.equal(removed.length, 2);
+    assert.deepEqual(flaggedIds, ['1002', '1010', '2002', '2101', '1017', '1018', '1020']);
+  });
+});
+
+test('mavi tiklinin RT ettiği tweetin kimliği de işaretlenir (sayfa bağlantısı orijinali gösterir)', () => {
+  const input = load('home-timeline.json');
+  const e = entry(input, 'tweet-1002');
+  e.content.itemContent.tweet_results.result.legacy.retweeted_status_result = {
+    result: { __typename: 'TweetWithVisibilityResults', tweet: { __typename: 'Tweet', rest_id: '9999' } },
+  };
+  const { flagged } = filterTimelineDetailed(input, { selfId: SELF });
+  assert.deepEqual(flagged.find((f) => f.tweetIds[0] === '1002').tweetIds, ['1002', '9999']);
+});
+
+test('filtresi bırakılan hesap (allowIds) işaretlenmez', () => {
+  const { flagged, removed } = filterTimelineDetailed(load('home-timeline.json'), { selfId: SELF, allowIds: ['202'] });
+  assert.deepEqual(flaggedFirstIds(flagged), ['1017', '1018']);
+  assert.equal(removed.length, 2);
+});
+
+test('bu oturumda sessize alınan hesap (mutedIds) tamamen kaldırılır, modül kuralları geçerli', () => {
+  const { json: out, removed, flagged } = filterTimelineDetailed(load('home-timeline.json'), {
+    selfId: SELF,
+    mutedIds: new Set(['202']),
+  });
+  const ids = entryIds(out);
+  for (const id of ['tweet-1002', 'tweet-1010', 'tweet-1020', 'home-conversation-2101']) assert.ok(!ids.includes(id), id);
+  assert.deepEqual(
+    entry(out, 'home-conversation-2001').content.items.map((i) => i.entryId),
+    ['home-conversation-2001-tweet-2001', 'home-conversation-2001-tweet-2003']
+  );
+  assert.equal(removed.find((r) => r.entryId === 'home-conversation-2101').reason, REASON.MODULE_ROOT);
+  assert.equal(removed.find((r) => r.entryId === 'tweet-1002').reason, REASON.MUTED);
+  assert.deepEqual(flaggedFirstIds(flagged), ['1017', '1018']);
 });
 
 // ------------------------------------------------------------ Takip edilenler
 
-test('Takip edilenler: PinEntry, AddEntries, AddToModule', () => {
+test('Takip edilenler: reklam kalkar, diğer talimatlar korunur ve işaretlenir', () => {
   const input = load('home-latest-timeline.json');
-  const out = filterTimeline(input, { selfId: SELF });
+  const { json: out, flagged } = filterTimelineDetailed(input, { selfId: SELF });
+  assert.deepEqual(
+    instructions(out).map((i) => i.type),
+    ['TimelineClearCache', 'TimelinePinEntry', 'TimelineAddEntries', 'TimelineAddToModule', 'TimelineAddToModule', 'TimelineAddToModule']
+  );
+  assert.ok(!entryIds(out).includes('promoted-tweet-4103-ff00'));
+  assert.deepEqual(flaggedFirstIds(flagged), ['4001', '4202', '4301', '4203', '4205']);
+});
+
+test('Takip edilenler + sessize alınan: PinEntry, AddToModule ve silinen modül', () => {
+  const input = load('home-latest-timeline.json');
+  const out = filterTimeline(input, { selfId: SELF, mutedIds: ['202'] });
   const ins = instructions(out);
 
-  assert.deepEqual(
-    ins.map((i) => i.type),
-    ['TimelineClearCache', 'TimelineAddEntries', 'TimelineAddToModule'],
-    'yabancı mavi sabitleme, boşalan ve silinmiş modüle ekleme talimatları düşmeli'
-  );
-
+  assert.deepEqual(ins.map((i) => i.type), ['TimelineClearCache', 'TimelineAddEntries', 'TimelineAddToModule']);
   assert.deepEqual(entryIds(out), [
     'tweet-4101',
     'tweet-4102',
@@ -119,10 +166,23 @@ test('Takip edilenler: PinEntry, AddEntries, AddToModule', () => {
   assert.deepEqual(atm.moduleItems.map((i) => i.entryId), ['home-conversation-4201-tweet-4204']);
 });
 
+// ------------------------------------------------------------ gösterim kararı
+
+test('decideDisplay: sessize alınan > filtresi bırakılan > açılan > kapalı', () => {
+  const st = (o = {}) => ({ mutedIds: new Set(o.muted || []), allowIds: new Set(o.allow || []), revealed: new Set(o.revealed || []) });
+  const info = { userId: '202' };
+  assert.equal(decideDisplay(undefined, '1', st()), 'show');
+  assert.equal(decideDisplay(info, '1', st()), 'collapse');
+  assert.equal(decideDisplay(info, '1', st({ revealed: ['1'] })), 'show');
+  assert.equal(decideDisplay(info, '1', st({ allow: ['202'] })), 'show');
+  assert.equal(decideDisplay(info, '1', st({ muted: ['202'], allow: ['202'], revealed: ['1'] })), 'hide');
+});
+
 // ------------------------------------------------------------ güvenlik / dayanıklılık
 
-test('kendi kimliğim bilinmiyorsa hiçbir mavi tikli gizlenmez, reklamlar yine gider', () => {
-  const { removed } = filterTimelineDetailed(load('home-timeline.json'), { selfId: null });
+test('kendi kimliğim bilinmiyorsa hiçbir mavi tikli işaretlenmez, reklamlar yine gider', () => {
+  const { removed, flagged } = filterTimelineDetailed(load('home-timeline.json'), { selfId: null, mutedIds: ['202'] });
+  assert.equal(flagged.length, 0);
   assert.ok(removed.length > 0);
   assert.ok(removed.every((r) => r.reason === REASON.PROMOTED), JSON.stringify(removed));
 });
@@ -170,13 +230,17 @@ test('instructions bilinen yol dışında olsa da bulunur', () => {
   const moved = { data: { home: { some_new_name_urt: src.data.home.home_timeline_urt } } };
   const out = filterTimeline(moved, { selfId: SELF });
   const ids = out.data.home.some_new_name_urt.instructions[0].entries.map((e) => e.entryId);
-  assert.ok(!ids.includes('tweet-1002'));
+  assert.ok(!ids.includes('promoted-tweet-1006-a1b2c3'));
   assert.ok(ids.includes('tweet-1001'));
+  assert.equal(filterTimelineDetailed(moved, { selfId: SELF }).flagged.length, 7);
 });
 
-test('selfId sayı olarak da verilebilir; geçersiz değer yok sayılır', () => {
+test('geçersiz selfId ve kimlik listeleri yok sayılır', () => {
   const a = filterTimelineDetailed(load('home-timeline.json'), { selfId: 'abc' });
-  assert.ok(a.removed.every((r) => r.reason === REASON.PROMOTED));
+  assert.equal(a.flagged.length, 0);
+  const b = filterTimelineDetailed(load('home-timeline.json'), { selfId: SELF, allowIds: 'bozuk', mutedIds: [null, 'x', 202] });
+  assert.deepEqual(b.flagged.map((f) => f.tweetIds[0]), ['1017', '1018'], 'sayı olarak verilen 202 sessize alınmış sayılmalı');
+  assert.equal(b.removed.find((r) => r.entryId === 'tweet-1002').reason, REASON.MUTED);
 });
 
 // ------------------------------------------------------------ kapsam

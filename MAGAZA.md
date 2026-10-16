@@ -34,7 +34,7 @@ Zip dosyalarını üretmek için önce `npm run build` komutunu çalıştırın.
    - **On this site (listed):** Eklenti AMO'da herkese açık listelenir ve insan incelemesinden geçebilir.
    - **On your own (unlisted):** Eklenti yalnızca imzalanır ve size `.xpi` olarak verilir. Listelenmez. Sadece kendiniz kalıcı olarak kullanmak istiyorsanız bunu seçin.
 3. `quiet-timeline-firefox.zip` dosyasını yükleyin. Otomatik doğrulama (linter) çalışır.
-4. **Kaynak kodu sorusu** ("Do you need to submit source code?"): `content.js`, build script'i tarafından `src/filter.js` ve `src/inject.js` dosyaları **birleştirilerek** üretilir. Küçültme (minify) yoktur. İncelemeyi hızlandırmak için **Evet** deyin, `quiet-timeline-source.zip` dosyasını yükleyin ve not alanına şunu yazın: `npm run build (Node 18+, bağımlılık yok)`.
+4. **Kaynak kodu sorusu** ("Do you need to submit source code?"): `content.js`, build script'i tarafından `src/filter.js`, `src/mute.js` ve `src/inject.js` dosyaları **birleştirilerek** üretilir. Küçültme (minify) yoktur. İncelemeyi hızlandırmak için **Evet** deyin, `quiet-timeline-source.zip` dosyasını yükleyin ve not alanına şunu yazın: `npm run build (Node 18+, bağımlılık yok)`.
 5. Listed seçtiyseniz açıklama, kategori ("Social & Communication"), lisans ve ekran görüntülerini ekleyin. Ardından gönderin.
 6. Manifest'teki `data_collection_permissions: { required: ["none"] }` alanı, AMO'nun yeni eklentilerden istediği "veri toplanmıyor" beyanıdır.
 
@@ -62,7 +62,7 @@ Edge kullanıcıları Chrome Web Store'dan da kurabilir. Edge'in kendi mağazas�
 **Kısa açıklama (≤132 karakter)**
 
 ```
-Removes ads and posts from paid-verified accounts you don't follow from your home timeline, for X/Twitter web.
+Removes ads and collapses posts from paid-verified accounts you don't follow on your X/Twitter web home timeline.
 ```
 
 **Uzun açıklama**
@@ -70,9 +70,14 @@ Removes ads and posts from paid-verified accounts you don't follow from your hom
 ```
 Quiet Timeline cleans up your home timeline on the X/Twitter website.
 
-What it removes:
-• All promoted posts (ads)
-• Posts from paid blue-check accounts that you do not follow
+What it does:
+• Removes all promoted posts (ads) completely, with no gaps
+• Collapses posts from paid blue-check accounts that you do not follow
+
+Each collapsed post has three buttons:
+• Show: open the post
+• Mute: mute the account on X (also applies in the X mobile app)
+• Stop filtering: never collapse this account again
 
 What it keeps:
 • Accounts you follow (blue check or not)
@@ -81,11 +86,9 @@ What it keeps:
 • Retweets and quotes made by people you follow
 • Anything it is not sure about — when in doubt, the post is shown
 
-Removed posts disappear completely: no "hidden" placeholders, no gaps.
-
 Scope: only the home timeline ("For you" and "Following" tabs). Post details, profiles, search and notifications are untouched. Works on the desktop website only, not in the mobile apps.
 
-Privacy: no data collection, no analytics, no external network requests, no extra permissions. Everything runs locally in your browser.
+Privacy: no data collection, no analytics, no extra permissions. Everything runs locally in your browser. The only request the extension makes is the mute request it sends to x.com when you click Mute.
 
 Not affiliated with or endorsed by X Corp.
 ```
@@ -93,17 +96,17 @@ Not affiliated with or endorsed by X Corp.
 **Tek amaç (single purpose)**
 
 ```
-Filters the user's X/Twitter web home timeline by removing promoted posts and posts from paid-verified accounts the user does not follow.
+Filters the user's X/Twitter web home timeline by removing promoted posts and collapsing posts from paid-verified accounts the user does not follow, with options to show, mute or stop filtering them.
 ```
 
 **Host izni gerekçesi**
 
 ```
-The extension needs access to x.com and twitter.com to filter the home timeline data that the site loads in the user's own browser. It only runs on these two domains, makes no network requests of its own, and does not read, store or transmit any user data.
+The extension needs access to x.com and twitter.com to filter the home timeline data that the site loads in the user's own browser. It only runs on these two domains. Its only network request is a mute request sent to x.com when the user clicks Mute. It does not collect or transmit any user data to anyone else.
 ```
 
 **Gizlilik beyanı**
 
 ```
-Quiet Timeline does not collect, store, transmit or sell any personal or usage data. It has no analytics, no tracking and makes no external network requests. All filtering happens locally in your browser, on x.com and twitter.com only. The extension reads the site's own login cookie solely in memory to recognise your own posts so they are never hidden; this value never leaves the page.
+Quiet Timeline does not collect, transmit or sell any personal or usage data. It has no analytics and no tracking. All filtering happens locally in your browser, on x.com and twitter.com only. The extension reads the site's own login cookies in memory to recognise your own posts and, only when you click Mute, to send that mute request to x.com on your behalf. The list of accounts you chose to stop filtering is stored only in your browser's local storage for x.com. Nothing is sent to the developer or any third party.
 ```

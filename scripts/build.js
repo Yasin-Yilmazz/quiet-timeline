@@ -53,21 +53,30 @@ function firefoxManifest() {
   });
 }
 
+// Her modül kendi `module` kapsamında çalışır; sayfaya global sızmaz.
+const MODULES = [
+  ['QuietTimelineFilter', 'src/filter.js'],
+  ['QuietTimelineMute', 'src/mute.js'],
+];
+
 function bundleContentScript() {
-  const filter = fs.readFileSync(path.join(ROOT, 'src/filter.js'), 'utf8');
-  const inject = fs.readFileSync(path.join(ROOT, 'src/inject.js'), 'utf8');
-  return [
-    `/*! Quiet Timeline v${pkg.version} — derlenmiş dosya, kaynak: src/filter.js + src/inject.js */`,
+  const parts = [
+    `/*! Quiet Timeline v${pkg.version} — derlenmiş dosya, kaynak: src/filter.js + src/mute.js + src/inject.js */`,
     '(function () {',
-    'const module = { exports: {} };',
-    '(function (module) {',
-    filter,
-    '})(module);',
-    'const QuietTimelineFilter = module.exports;',
-    inject,
-    '})();',
-    '',
-  ].join('\n');
+  ];
+  for (const [name, file] of MODULES) {
+    parts.push(
+      `const ${name} = (function () {`,
+      'const module = { exports: {} };',
+      '(function (module) {',
+      fs.readFileSync(path.join(ROOT, file), 'utf8'),
+      '})(module);',
+      'return module.exports;',
+      '})();'
+    );
+  }
+  parts.push(fs.readFileSync(path.join(ROOT, 'src/inject.js'), 'utf8'), '})();', '');
+  return parts.join('\n');
 }
 
 function listFiles(dir, base = dir) {

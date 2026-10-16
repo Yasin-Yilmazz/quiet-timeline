@@ -4,8 +4,10 @@
  * Quiet Timeline — saf filtre modülü.
  *
  * Girdi: HomeTimeline / HomeLatestTimeline GraphQL cevabı (parse edilmiş JSON).
- * Çıktı: reklamları ve takip edilmeyen ücretli mavi tikli hesapların
- * tweetlerini çıkarılmış JSON. Girdi nesnesi asla değiştirilmez.
+ * Çıktı: reklamları çıkarılmış JSON ve takip edilmeyen ücretli mavi tikli
+ * hesapların tweetlerinin listesi (`flagged`). Bu tweetler JSON'da kalır;
+ * sayfada kapalı (tıklayınca açılan) olarak gösterilir. Bu oturumda sessize
+ * alınan hesapların tweetleri de çıkarılır. Girdi nesnesi asla değiştirilmez.
  *
  * İlke: emin olmadığımız her durumda tweeti GÖSTER (fail-open).
  */
@@ -14,7 +16,7 @@ const TARGET_URL_RE = /\/graphql\/[^/?#]+\/(HomeTimeline|HomeLatestTimeline)(?:[
 
 const REASON = {
   PROMOTED: 'promoted',
-  BLUE: 'blue-unfollowed',
+  MUTED: 'muted',
   MODULE_ROOT: 'module-root-removed',
   MODULE_EMPTY: 'module-empty',
 };
@@ -85,6 +87,26 @@ function getAuthor(tweet) {
   return null;
 }
 
+function getScreenName(user) {
+  const v = (isObj(user.core) && user.core.screen_name) || (isObj(user.legacy) && user.legacy.screen_name);
+  return typeof v === 'string' ? v : null;
+}
+
+function getDisplayName(user) {
+  const v = (isObj(user.core) && user.core.name) || (isObj(user.legacy) && user.legacy.name);
+  return typeof v === 'string' ? v : null;
+}
+
+// Sayfadaki bağlantılar RT'de orijinal tweete gider; ikisini de kaydet.
+function getTweetIds(tweet) {
+  const ids = [];
+  if (typeof tweet.rest_id === 'string') ids.push(tweet.rest_id);
+  const rt = isObj(tweet.legacy) ? tweet.legacy.retweeted_status_result : undefined;
+  const orig = isObj(rt) ? unwrapTweet(rt.result) : null;
+  if (orig && typeof orig.rest_id === 'string') ids.push(orig.rest_id);
+  return ids;
+}
+
 function getUserId(user) {
   if (typeof user.rest_id === 'string' && user.rest_id) return user.rest_id;
   if (isObj(user.legacy) && typeof user.legacy.id_str === 'string' && user.legacy.id_str) {
@@ -121,6 +143,7 @@ function isUnfollowedBlue(user, ctx) {
 }
 
 // Tek bir tweet içeriğini değerlendirir. Kaldırılacaksa neden, değilse null döner.
+// Takip edilmeyen mavi tikli tweetler kaldırılmaz, ctx.flag ile işaretlenir.
 function evaluateItem(itemContent, entryId, ctx) {
   if (isPromotedEntryId(entryId)) return REASON.PROMOTED;
   if (!isObj(itemContent)) return null;
@@ -140,7 +163,21 @@ function evaluateItem(itemContent, entryId, ctx) {
   const id = getUserId(user);
   if (!ctx.selfId || !id || id === ctx.selfId) return null;
 
-  return isUnfollowedBlue(user, ctx) ? REASON.BLUE : null;
+  if (!isUnfollowedBlue(user, ctx) || ctx.allowIds.has(id)) return null;
+  if (ctx.mutedIds.has(id)) return REASON.MUTED;
+  ctx.flag(tweet, user, id);
+  return null;
+}
+
+function toIdSet(v) {
+  const out = new Set();
+  if (v && typeof v[Symbol.iterator] === 'function') {
+    for (const x of v) {
+      const id = typeof x === 'number' ? String(x) : x;
+      if (typeof id === 'string' && /^\d+$/.test(id)) out.add(id);
+    }
+  }
+  return out;
 }
 
 // Bir timeline girdisini değerlendirir.
@@ -312,19 +349,28 @@ function normalizeSelfId(id) {
 
 /**
  * @param {object} json      timeline cevabı
- * @param {{selfId?: string|null}} [options]
- * @returns {{json: object, removed: Array<{entryId: string, reason: string, module?: string, items?: Array}>, changed: boolean}}
+ * @param {{selfId?: string|null, allowIds?: Iterable<string>, mutedIds?: Iterable<string>}} [options]
+ *   allowIds: filtresi bırakılan hesaplar; mutedIds: bu oturumda sessize alınanlar
+ * @returns {{json: object, removed: Array, flagged: Array<{tweetIds: string[], userId: string, screenName: string|null, name: string|null}>, changed: boolean}}
  */
 function filterTimelineDetailed(json, options) {
   const removed = [];
-  if (!isObj(json) || !isObj(json.data)) return { json, removed, changed: false };
+  const flagged = [];
+  if (!isObj(json) || !isObj(json.data)) return { json, removed, flagged, changed: false };
   try {
     const holders = findInstructionHolders(json);
-    if (holders.length === 0) return { json, removed, changed: false };
+    if (holders.length === 0) return { json, removed, flagged, changed: false };
 
     const ctx = {
       selfId: normalizeSelfId(options && options.selfId),
+      allowIds: toIdSet(options && options.allowIds),
+      mutedIds: toIdSet(options && options.mutedIds),
       removedModules: new Set(),
+      flag(tweet, user, userId) {
+        const tweetIds = getTweetIds(tweet);
+        if (tweetIds.length === 0) return;
+        flagged.push({ tweetIds, userId, screenName: getScreenName(user), name: getDisplayName(user) });
+      },
       record(entryId, reason, items, module) {
         const r = { entryId: entryId == null ? null : String(entryId), reason };
         if (module) r.module = module;
@@ -335,22 +381,35 @@ function filterTimelineDetailed(json, options) {
 
     // Önce kuru çalışma: değişiklik yoksa kopyalama maliyetine girme.
     const results = holders.map((h) => filterInstructions(h.instructions, ctx));
-    if (removed.length === 0) return { json, removed, changed: false };
+    if (removed.length === 0) return { json, removed, flagged, changed: false };
 
     const out = clone(json);
     const outHolders = findInstructionHolders(out);
-    if (outHolders.length !== results.length) return { json, removed: [], changed: false };
+    if (outHolders.length !== results.length) return { json, removed: [], flagged, changed: false };
     outHolders.forEach((h, i) => {
       h.instructions = clone(results[i]);
     });
-    return { json: out, removed, changed: true };
+    return { json: out, removed, flagged, changed: true };
   } catch (e) {
-    return { json, removed: [], changed: false, error: e };
+    return { json, removed: [], flagged: [], changed: false, error: e };
   }
 }
 
 function filterTimeline(json, options) {
   return filterTimelineDetailed(json, options).json;
+}
+
+/**
+ * Sayfadaki bir tweetin nasıl gösterileceği.
+ * @param {{userId: string}|undefined} info  flagged kaydı (yoksa tweet işaretli değil)
+ * @returns {'show'|'collapse'|'hide'}
+ */
+function decideDisplay(info, tweetId, state) {
+  if (!info) return 'show';
+  if (state.mutedIds.has(info.userId)) return 'hide';
+  if (state.allowIds.has(info.userId)) return 'show';
+  if (state.revealed.has(tweetId)) return 'show';
+  return 'collapse';
 }
 
 module.exports = {
@@ -359,6 +418,7 @@ module.exports = {
   operationName,
   filterTimeline,
   filterTimelineDetailed,
+  decideDisplay,
   // testler için
   _internal: { evaluateItem, unwrapTweet, getAuthor, followState, hasVerifiedType },
 };
