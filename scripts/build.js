@@ -103,7 +103,7 @@ function build() {
   }
 
   // AMO "kaynak kodu" sorusu için kaynak arşivi.
-  const sourceFiles = ['package.json', 'README.md', 'src', 'scripts', 'tests']
+  const sourceFiles = ['package.json', 'README.md', 'MAGAZA.md', 'LICENSE', 'src', 'scripts', 'tests']
     .filter((p) => fs.existsSync(path.join(ROOT, p)))
     .flatMap((p) => {
       const abs = path.join(ROOT, p);
