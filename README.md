@@ -32,7 +32,32 @@ X/Twitter web anasayfasından reklamları ve **takip etmediğiniz ücretli mavi 
 
 ---
 
-## 2. Klasörden yükleme (geliştirici modu)
+## 2. Tarayıcı uyumluluğu
+
+Eklentinin iki sürümü vardır: **Chromium sürümü** (`dist/chrome`) ve **Firefox sürümü** (`dist/firefox`). İki sürüm de içerik betiğini sayfanın kendi ortamında (`world: "MAIN"`) çalıştırır. Bu yüzden tarayıcının bu özelliği desteklemesi gerekir: Chromium 111+ veya Firefox 128+.
+
+| Tarayıcı | Çalışır mı? | Kullanılacak sürüm | Kalıcı kurulum yolu |
+|---|---|---|---|
+| Google Chrome 111+ | ✅ Evet | `dist/chrome` | Chrome Web Store |
+| Microsoft Edge 111+ | ✅ Evet | `dist/chrome` | Edge Add-ons (aynı zip) veya Chrome Web Store ("Diğer mağazalardan uzantılara izin ver") |
+| Brave | ✅ Evet | `dist/chrome` | Chrome Web Store |
+| Opera | ✅ Evet | `dist/chrome` | Opera Add-ons (aynı zip) veya Chrome Web Store ("Diğer mağazalardan uzantılara izin ver") |
+| Opera GX | ✅ Evet | `dist/chrome` | Opera ile aynı |
+| Vivaldi | ✅ Evet | `dist/chrome` | Chrome Web Store |
+| Arc | ✅ Evet | `dist/chrome` | Chrome Web Store |
+| Diğer güncel Chromium tabanlılar (Yandex vb.) | ✅ Büyük olasılıkla | `dist/chrome` | Chrome Web Store |
+| Mozilla Firefox 128+ (ESR 128+ dahil) | ✅ Evet | `dist/firefox` | Firefox Add-ons (AMO) |
+| Firefox tabanlılar (Zen, LibreWolf, Waterfox, Floorp) | ✅ Büyük olasılıkla | `dist/firefox` | Firefox Add-ons (AMO) |
+| Safari (macOS / iOS) | ❌ Hayır | — | Safari için ayrı bir Xcode paketi gerekir; şu an yok |
+| Mobil tarayıcılar (Chrome Android, iOS tarayıcıları) | ❌ Hayır | — | Bu tarayıcılar eklenti desteklemez |
+| Firefox Android | ⚠️ Denenmedi | `dist/firefox` | Resmî olarak desteklenmiyor |
+| X'in iOS / Android uygulamaları | ❌ Hayır | — | Eklenti yalnızca web sürümünde çalışır |
+
+"Büyük olasılıkla" işaretli tarayıcılar aynı altyapıyı kullandığı için çalışmalıdır, ancak bu tarayıcılarda deneme yapılmadı.
+
+---
+
+## 3. Klasörden yükleme (geliştirici modu)
 
 Önce derleyin:
 
@@ -40,10 +65,21 @@ X/Twitter web anasayfasından reklamları ve **takip etmediğiniz ücretli mavi 
 npm run build
 ```
 
-### Chrome (ve Edge, Brave gibi Chromium tabanlılar)
+### Chromium tabanlı tarayıcılar (Chrome, Edge, Brave, Opera, Opera GX, Vivaldi, Arc)
 
-1. `chrome://extensions` adresini açın.
-2. Sağ üstten **Geliştirici modu**nu açın.
+Tüm Chromium tabanlı tarayıcılarda adımlar aynıdır. Yalnızca eklenti sayfasının adresi değişir:
+
+| Tarayıcı | Eklenti sayfası |
+|---|---|
+| Chrome | `chrome://extensions` |
+| Edge | `edge://extensions` |
+| Brave | `brave://extensions` |
+| Opera / Opera GX | `opera://extensions` |
+| Vivaldi | `vivaldi://extensions` |
+| Arc | `arc://extensions` |
+
+1. Tarayıcınızın eklenti sayfasını açın.
+2. **Geliştirici modu**nu açın. Çoğu tarayıcıda sağ üsttedir; Edge'de sol menüdedir.
 3. **Paketlenmemiş öğe yükle** düğmesine basın ve `dist/chrome` klasörünü seçin.
 4. Açık olan x.com sekmesini yenileyin.
 
@@ -53,25 +89,25 @@ npm run build
 2. **Geçici Eklenti Yükle…** düğmesine basın ve `dist/firefox/manifest.json` dosyasını seçin.
 3. x.com sekmesini yenileyin.
 
-> ⚠️ Geçici yüklenen eklenti **Firefox kapanınca silinir**. Kalıcı kullanım için AMO üzerinden imzalatmanız gerekir (bkz. 3.2; "unlisted" seçeneği yeterlidir).
+> ⚠️ Geçici yüklenen eklenti **Firefox kapanınca silinir**. Kalıcı kullanım için AMO üzerinden imzalatmanız gerekir (bkz. 4.2; "unlisted" seçeneği yeterlidir).
 
 ### Kodu değiştirdikten sonra
 
 1. `npm run build` komutunu çalıştırın.
-2. Chrome'da `chrome://extensions` sayfasında eklenti kartındaki **↻ (yenile)** simgesine basın. Firefox'ta `about:debugging` sayfasında **Yeniden yükle** düğmesine basın.
+2. Chromium tabanlı tarayıcılarda eklenti sayfasındaki kartta **↻ (yenile)** simgesine basın. Firefox'ta `about:debugging` sayfasında **Yeniden yükle** düğmesine basın.
 3. x.com sekmesini **yenileyin**. Script `document_start` anında yüklendiği için sayfa yenilenmeden yeni sürüm devreye girmez.
 
 ---
 
-## 3. Mağazaya yükleme
+## 4. Mağazaya yükleme
 
 `npm run build` şu dosyaları üretir:
 
-- `dist/quiet-timeline-chrome.zip`: Chrome Web Store için
+- `dist/quiet-timeline-chrome.zip`: Chrome Web Store, Edge Add-ons ve Opera Add-ons için
 - `dist/quiet-timeline-firefox.zip`: AMO için
 - `dist/quiet-timeline-source.zip`: AMO'nun kaynak kodu sorusu için
 
-### 3.1 Chrome Web Store
+### 4.1 Chrome Web Store
 
 1. **Geliştirici hesabı:** [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole) adresine bir Google hesabıyla girin. Kayıt için **tek seferlik 5 USD** ödenir. Hesap doğrulamasını ve iletişim e-postası doğrulamasını tamamlayın.
 2. **Yeni öğe** düğmesine basıp `quiet-timeline-chrome.zip` dosyasını yükleyin.
@@ -88,7 +124,7 @@ npm run build
    - Veri toplanmadığı için gizlilik politikası URL'si zorunlu değildir. Yine de isterseniz aşağıdaki beyanı bir sayfada yayımlayıp bağlantısını verebilirsiniz.
 5. **İncelemeye gönder.** İnceleme genelde birkaç gün sürer, bazen birkaç haftaya uzayabilir. Yalnızca iki alan adına erişim istendiği için geniş host izni uyarısı çıkmaz.
 
-### 3.2 Firefox Add-ons (AMO)
+### 4.2 Firefox Add-ons (AMO)
 
 1. **Hesap:** [addons.mozilla.org/developers](https://addons.mozilla.org/developers/) adresinde ücretsiz bir Mozilla hesabı açın.
 2. **Submit a New Add-on** seçeneğine tıklayın ve dağıtım türünü seçin:
@@ -99,7 +135,26 @@ npm run build
 5. Listed seçtiyseniz açıklama, kategori ("Social & Communication"), lisans ve ekran görüntülerini ekleyin. Ardından gönderin.
 6. Manifest'teki `data_collection_permissions: { required: ["none"] }` alanı, AMO'nun yeni eklentilerden istediği "veri toplanmıyor" beyanıdır.
 
-### 3.3 Hazır, kopyalanabilir metinler
+### 4.3 Opera Add-ons (Opera ve Opera GX)
+
+Opera kullanıcıları eklentiyi iki yoldan kurabilir:
+
+- **Chrome Web Store'dan:** Opera, Chrome Web Store'da "Diğer mağazalardan uzantılara izin ver" uyarısı gösterir. Bu izin verildiğinde Chrome mağazasındaki eklenti doğrudan kurulur. Chrome Web Store'a yüklemek çoğu durumda yeterlidir.
+- **Opera'nın kendi mağazasından:** Listelemek için:
+  1. [addons.opera.com/developer](https://addons.opera.com/developer/) adresinde ücretsiz bir Opera hesabıyla giriş yapın.
+  2. **Upload new extension** ile `quiet-timeline-chrome.zip` dosyasını yükleyin. Aynı zip kullanılır.
+  3. Açıklama, kategori, ekran görüntüleri ve ikonu ekleyin. 4.5'teki metinler burada da kullanılabilir.
+  4. Gönderin. İncelemeyi Opera moderatörleri elle yapar ve süre değişkendir. Opera GX kullanıcıları da aynı mağazadan kurar.
+
+### 4.4 Microsoft Edge Add-ons
+
+Edge kullanıcıları Chrome Web Store'dan da kurabilir. Edge'in kendi mağazasında listelemek isterseniz:
+
+1. [Microsoft Partner Center](https://partner.microsoft.com/dashboard/microsoftedge/overview) adresinde ücretsiz bir geliştirici hesabı açın.
+2. **Create new extension** ile `quiet-timeline-chrome.zip` dosyasını yükleyin. Aynı zip kullanılır.
+3. Açıklama, gizlilik beyanı ve görselleri ekleyin (4.5'teki metinler kullanılabilir), sonra gönderin. İnceleme genelde birkaç iş günü sürer.
+
+### 4.5 Hazır, kopyalanabilir metinler
 
 **Kısa açıklama (≤132 karakter)**
 
@@ -152,7 +207,7 @@ Quiet Timeline does not collect, store, transmit or sell any personal or usage d
 
 ---
 
-## 4. Geliştirme
+## 5. Geliştirme
 
 ```bash
 npm run build   # dist/chrome, dist/firefox ve 3 zip dosyası
