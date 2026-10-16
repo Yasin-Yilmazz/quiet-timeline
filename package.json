@@ -1,8 +1,8 @@
 {
   "name": "quiet-timeline",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
-  "description": "Removes ads and collapses posts from paid-verified accounts you don't follow on your X/Twitter web home timeline.",
+  "description": "Removes ads and adds Hide/Mute controls to posts from paid-verified accounts you don't follow on X/Twitter web.",
   "license": "MIT",
   "scripts": {
     "build": "node scripts/build.js",

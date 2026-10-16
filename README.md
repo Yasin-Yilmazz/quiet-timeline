@@ -1,6 +1,6 @@
 # Quiet Timeline
 
-X/Twitter web anasayfasında reklamları kaldıran, **takip etmediğiniz ücretli mavi tikli** hesapların gönderilerini ise kapalı gösteren tarayıcı eklentisi. Kapalı gönderiyi tek tıkla açabilir, hesabı sessize alabilir ya da filtreden çıkarabilirsiniz. Chrome, Edge, Brave, Opera, Opera GX, Vivaldi, Arc ve Firefox'ta çalışır.
+X/Twitter web anasayfasında reklamları kaldıran ve **takip etmediğiniz ücretli mavi tikli** hesapların gönderilerinin üstüne **Gizle / Sessize al / Filtrelemeyi bırak** düğmeleri ekleyen tarayıcı eklentisi. Chrome, Edge, Brave, Opera, Opera GX, Vivaldi, Arc ve Firefox'ta çalışır.
 
 ## İndir ve kur
 
@@ -43,19 +43,19 @@ Yeni sürümü indirip eski klasörün yerine çıkarın. Eklenti sayfasında **
 | Durum | Sonuç |
 |---|---|
 | Reklam / sponsorlu girdi (`entryId` `promoted-` ile başlar ya da `promotedMetadata` var) | **Tamamen kaldırılır.** Geride boşluk kalmaz. Yazarın kim olduğu önemli değildir. |
-| Yazar `is_blue_verified === true` **ve** `verified_type` yok **ve** onu takip etmiyorsunuz **ve** yazar siz değilsiniz | **Kapalı gösterilir** (aşağıya bakın) |
+| Yazar `is_blue_verified === true` **ve** `verified_type` yok **ve** onu takip etmiyorsunuz **ve** yazar siz değilsiniz | **Açık gelir, üstüne düğme şeridi eklenir** (aşağıya bakın) |
 
-### Kapalı gönderi
+### Düğme şeridi
 
-Takip etmediğiniz mavi tikli bir hesabın gönderisi, içeriği gizli tek satırlık bir kutu olarak görünür:
+Takip etmediğiniz mavi tikli bir hesabın gönderisi normal şekilde açık gelir; üstünde tek satırlık bir şerit görünür:
 
 ```
-Takip etmediğin mavi tikli hesap · Ad Soyad @kullanici   [Göster] [Sessize al] [Filtrelemeyi bırak]
+Takip etmediğin mavi tikli hesap · Ad Soyad @kullanici   [Gizle] [Sessize al] [Filtrelemeyi bırak]
 ```
 
-- **Göster** veya kutuya tıklamak: Gönderiyi açar. Sayfa yenilenene kadar açık kalır.
+- **Gizle:** Gönderiyi kapatır. Yerinde **[Göster] [Sessize al] [Filtrelemeyi bırak]** düğmeli bir kutu kalır. **Göster** ya da kutuya tıklamak gönderiyi tekrar açar. Gizlediğiniz gönderi sayfa yenilenene kadar kapalı kalır.
 - **Sessize al:** Hesabı X hesabınızda sessize alır; X'te "Sessize al" demekle aynıdır. O hesabın gönderileri anında kaybolur ve bir daha anasayfanıza gelmez. Sessize alma X'te kayıtlı olduğu için **telefondaki X uygulamasında da geçerlidir**. Geri almak için X'te *Ayarlar → Gizlilik ve güvenlik → Sessize al ve engelle → Sessize alınan hesaplar* yolunu izleyin.
-- **Filtrelemeyi bırak:** O hesabın gönderileri artık hiç kapatılmaz. Bu tercih yalnızca bu tarayıcıda, x.com'un yerel deposunda (localStorage) saklanır. Tarayıcı verilerini silerseniz liste sıfırlanır.
+- **Filtrelemeyi bırak:** O hesabın gönderilerinde şerit bir daha çıkmaz. Bu tercih yalnızca bu tarayıcıda, x.com'un yerel deposunda (localStorage) saklanır. Tarayıcı verilerini silerseniz liste sıfırlanır.
 
 **Dokunmaz:**
 
@@ -66,7 +66,7 @@ Takip etmediğin mavi tikli hesap · Ad Soyad @kullanici   [Göster] [Sessize al
 - **Alıntı:** Takip ettiğiniz biri mavi tikliyi alıntılarsa hem gönderi hem alıntı kutusu görünür kalır.
 - **Emin olunamayan durumlar (fail-open):** Takip bilgisi ya da tik alanı eksikse, X yanıtın biçimini değiştirdiyse veya kendi kullanıcı kimliğiniz tespit edilemezse gönderi **gösterilir**. Kimliğiniz bulunamazsa yalnızca reklamlar kaldırılır.
 
-**Konuşma modülleri** (anasayfadaki yanıt zincirleri): Her öğe ayrı değerlendirilir; kurala uyan yanıtlar kapalı gösterilir. Kaldırılan öğeler (reklamlar ve sessize aldığınız hesaplar) için: zincirin ilk öğesi kaldırılırsa ya da zincirde öğe kalmazsa modülün tamamı kaldırılır.
+**Konuşma modülleri** (anasayfadaki yanıt zincirleri): Her öğe ayrı değerlendirilir; kurala uyan yanıtların üstüne şerit eklenir. Kaldırılan öğeler (reklamlar ve sessize aldığınız hesaplar) için: zincirin ilk öğesi kaldırılırsa ya da zincirde öğe kalmazsa modülün tamamı kaldırılır.
 
 **Kapsam:** Yalnızca anasayfa, yani "Sana özel" ve "Takip edilenler" sekmeleri (`HomeTimeline`, `HomeLatestTimeline`). Tweet detayı, profil, arama, bildirimler ve diğer sayfalara dokunulmaz.
 
@@ -119,7 +119,7 @@ Gereksinim: Node 18+. Hiç npm bağımlılığı yoktur; PNG ve ZIP üretimi Nod
 `package.json` içindeki `version` değerini artırın, `npm run build` çalıştırın ve iki zip'i yeni bir GitHub Release'e ekleyin:
 
 ```bash
-gh release create v1.1.1 dist/quiet-timeline-chrome.zip dist/quiet-timeline-firefox.zip --title "v1.1.1"
+gh release create v1.2.1 dist/quiet-timeline-chrome.zip dist/quiet-timeline-firefox.zip --title "v1.2.1"
 ```
 
 README'deki indirme bağlantıları her zaman en son Release'i gösterir.
@@ -132,14 +132,14 @@ Mağazalarda (Chrome Web Store, Firefox Add-ons, Opera, Edge) yayımlama adımla
 src/
   filter.js        Saf filtre: reklamları çıkarır, mavi tiklileri işaretler (flagged); decideDisplay
   mute.js          "Sessize al" isteğini oluşturur (x.com'un kendi uç noktası)
-  inject.js        fetch/XHR yamaları, kimlik tespiti, kapalı gönderi arayüzü, /home DOM katmanı, DEBUG
+  inject.js        fetch/XHR yamaları, kimlik tespiti, düğme şeridi arayüzü, /home DOM katmanı, DEBUG
 scripts/
   build.js         İki manifest, content.js paketi, ikonlar, zip'ler
   lib.js           CRC32, PNG kodlayıcı, ikon çizimi, ZIP yazıcı
 tests/
   fixtures/        Gerçekçi HomeTimeline / HomeLatestTimeline JSON örnekleri
   filter.test.js   Her filtre kuralı ve dayanıklılık testleri
-  inject.test.js   Derlenmiş content.js: fetch/XHR ve kapalı gönderi arayüzü (vm + sahte DOM)
+  inject.test.js   Derlenmiş content.js: fetch/XHR ve düğme şeridi arayüzü (vm + sahte DOM)
   mute.test.js     Sessize alma isteği ve çerez okuma
   build.test.js    Manifest, ikon ve zip doğrulaması
   helpers/         Bağımlılıksız küçük sahte DOM
@@ -158,17 +158,17 @@ DOM yedek katmanı yalnızca `/home` yolunda çalışır. API filtresinden kaça
 
 ### Hata ayıklama
 
-`src/inject.js` dosyasında `const DEBUG = true;` yapın, yeniden derleyip eklentiyi yenileyin. Konsolda `[Quiet Timeline]` önekiyle her cevapta kaç girdinin, hangi nedenle (`promoted`, `muted`, `module-root-removed`, `module-empty`) kaldırıldığı ve kaç gönderinin kapalı gösterileceği görünür.
+`src/inject.js` dosyasında `const DEBUG = true;` yapın, yeniden derleyip eklentiyi yenileyin. Konsolda `[Quiet Timeline]` önekiyle her cevapta kaç girdinin, hangi nedenle (`promoted`, `muted`, `module-root-removed`, `module-empty`) kaldırıldığı ve kaç gönderinin işaretlendiği görünür.
 
 ### Test sonuçları
 
-`npm test` komutu 74 test çalıştırır ve hepsi geçer. Kapsanan durumlar: takip edilen ve edilmeyen mavi tik, altın tik, gri tik, tiksiz hesap, iki tür reklam, RT, alıntı, TweetWithVisibilityResults, konuşma modülleri, PinEntry, AddToModule, kendi tweetiniz, eksik alanlar, eski ve yeni şema, bozuk girdiler, fetch/XHR yamaları, kapalı gönderi arayüzü (Göster, Sessize al ve başarısızlığı, Filtrelemeyi bırak, sanal liste hücre değişimi), sessize alma isteği ve manifest kuralları.
+`npm test` komutu 76 test çalıştırır ve hepsi geçer. Kapsanan durumlar: takip edilen ve edilmeyen mavi tik, altın tik, gri tik, tiksiz hesap, iki tür reklam, RT, alıntı, TweetWithVisibilityResults, konuşma modülleri, PinEntry, AddToModule, kendi tweetiniz, eksik alanlar, eski ve yeni şema, bozuk girdiler, fetch/XHR yamaları, düğme şeridi arayüzü (varsayılan açık şerit, Gizle ve Göster, Sessize al ve başarısızlığı, Filtrelemeyi bırak, sanal liste hücre değişimi), sessize alma isteği ve manifest kuralları.
 
 ### Gerçek oturumda elle doğrulama
 
 x.com'a giriş yapılmış tarayıcıda şunları kontrol edin:
 
-1. **Kapalı gönderiler çıkıyor mu?** Takip etmediğiniz mavi tiklilerin gönderileri kapalı kutu olarak görünmeli. Hiç çıkmıyorsa `DEBUG = true` ile konsola bakın; "0 tweet kapalı gösterilecek" yazıyor ve kimlik uyarısı yoksa, X bu hesaplar için `following` alanını göndermiyor demektir (fail-open). Bu durumda Network sekmesinde HomeTimeline cevabındaki `relationship_perspectives` alanına bakın.
+1. **Şerit çıkıyor mu?** Takip etmediğiniz mavi tiklilerin gönderilerinin üstünde düğme şeridi görünmeli. Hiç çıkmıyorsa `DEBUG = true` ile konsola bakın; "0 tweet işaretlendi" yazıyor ve kimlik uyarısı yoksa, X bu hesaplar için `following` alanını göndermiyor demektir (fail-open). Bu durumda Network sekmesinde HomeTimeline cevabındaki `relationship_perspectives` alanına bakın.
 2. **Kimlik tespiti:** Konsolda "kendi kimliğim bulunamadı" uyarısı çıkmamalı. Kendi gönderileriniz ve takip ettiğiniz mavi tikliler görünür kalmalı.
 3. **Reklamlar ve boşluklar:** "Sana özel" sekmesinde aşağı kaydırın. "Reklam" etiketli gönderi ve boş satır görmemelisiniz.
 4. **Kapsam:** Bir tweet detayına, bir mavi tiklinin profiline ve aramaya gidin. Oradaki mavi tikli yanıtlar ve gönderiler normal görünmeye devam etmeli.

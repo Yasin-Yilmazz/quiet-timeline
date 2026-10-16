@@ -6,7 +6,7 @@
  * Girdi: HomeTimeline / HomeLatestTimeline GraphQL cevabı (parse edilmiş JSON).
  * Çıktı: reklamları çıkarılmış JSON ve takip edilmeyen ücretli mavi tikli
  * hesapların tweetlerinin listesi (`flagged`). Bu tweetler JSON'da kalır;
- * sayfada kapalı (tıklayınca açılan) olarak gösterilir. Bu oturumda sessize
+ * sayfada üstlerine Gizle / Sessize al / Filtrelemeyi bırak şeridi eklenir. Bu oturumda sessize
  * alınan hesapların tweetleri de çıkarılır. Girdi nesnesi asla değiştirilmez.
  *
  * İlke: emin olmadığımız her durumda tweeti GÖSTER (fail-open).
@@ -402,14 +402,15 @@ function filterTimeline(json, options) {
 /**
  * Sayfadaki bir tweetin nasıl gösterileceği.
  * @param {{userId: string}|undefined} info  flagged kaydı (yoksa tweet işaretli değil)
- * @returns {'show'|'collapse'|'hide'}
+ * Varsayılan: açık ve üstünde düğme şeridi ('revealed'). Kullanıcı Gizle derse 'collapse'.
+ * @returns {'show'|'collapse'|'revealed'|'hide'}
  */
 function decideDisplay(info, tweetId, state) {
   if (!info) return 'show';
   if (state.mutedIds.has(info.userId)) return 'hide';
   if (state.allowIds.has(info.userId)) return 'show';
-  if (state.revealed.has(tweetId)) return 'show';
-  return 'collapse';
+  if (state.concealed.has(tweetId)) return 'collapse';
+  return 'revealed';
 }
 
 module.exports = {

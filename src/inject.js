@@ -7,8 +7,8 @@
  * sayfaya global değişken sızdırmaz.
  *
  * - Reklamlar API cevabından tamamen çıkarılır.
- * - Takip edilmeyen mavi tikli tweetler sayfada kapalı gösterilir:
- *   [Göster] [Sessize al] [Filtrelemeyi bırak]
+ * - Takip edilmeyen mavi tikli tweetlerin üstüne düğme şeridi eklenir:
+ *   [Gizle] [Sessize al] [Filtrelemeyi bırak]
  */
 
 const DEBUG = false;
@@ -32,7 +32,7 @@ const state = {
   flagged: new Map(), // tweetId → { userId, screenName, name }
   allowIds: loadAllow(), // filtresi bırakılan hesaplar (kalıcı, x.com localStorage)
   mutedIds: new Set(), // bu oturumda sessize alınanlar (kalıcı kayıt X'te)
-  revealed: new Set(), // açılan tweetler (bu sayfa oturumu)
+  concealed: new Set(), // Gizle ile kapatılan tweetler (bu sayfa oturumu)
   bearer: null, // sayfanın kendi isteklerinden yakalanır
 };
 
@@ -109,7 +109,7 @@ function runFilter(json, url) {
     for (const r of res.removed) counts[r.reason] = (counts[r.reason] || 0) + 1;
     log(
       QuietTimelineFilter.operationName(url) + ': ' + res.removed.length + ' girdi kaldırıldı, ' +
-        (res.flagged ? res.flagged.length : 0) + ' tweet kapalı gösterilecek',
+        (res.flagged ? res.flagged.length : 0) + ' tweet işaretlendi',
       counts,
       res.removed,
       res.flagged,
@@ -335,6 +335,7 @@ const TEXT = {
   tr: {
     label: 'Takip etmediğin mavi tikli hesap',
     show: 'Göster',
+    hide: 'Gizle',
     mute: 'Sessize al',
     allow: 'Filtrelemeyi bırak',
     muting: 'Sessize alınıyor…',
@@ -343,6 +344,7 @@ const TEXT = {
   en: {
     label: "Paid-verified account you don't follow",
     show: 'Show',
+    hide: 'Hide',
     mute: 'Mute',
     allow: 'Stop filtering',
     muting: 'Muting…',
@@ -402,6 +404,8 @@ function ensureStyle() {
     'padding:12px 16px;border-bottom:1px solid var(--qt-border);cursor:pointer;',
     'font:14px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--qt-muted)}',
     '.' + PH_CLASS + ':hover{background:var(--qt-hover)}',
+    '.' + PH_CLASS + '.qt-revealed{cursor:default;border-bottom:none;padding-bottom:4px}',
+    '.' + PH_CLASS + '.qt-revealed:hover{background:transparent}',
     '.' + PH_CLASS + ' .qt-text{flex:1 1 220px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '.' + PH_CLASS + ' .qt-name{color:var(--qt-fg);font-weight:700}',
     '.' + PH_CLASS + ' .qt-actions{display:flex;flex-wrap:wrap;gap:8px}',
@@ -446,13 +450,19 @@ function button(label, cls, onClick) {
   return b;
 }
 
-function buildPlaceholder(tweetId, info) {
+// mode 'revealed' (varsayılan): açık tweetin üstündeki şerit; Gizle ile kapanır.
+// mode 'collapse': Gizle sonrası tweetin yerine geçen kutu; tıklayınca açılır.
+function buildPlaceholder(tweetId, info, mode) {
   const s = t();
+  const collapsed = mode === 'collapse';
   const ph = document.createElement('div');
-  ph.className = PH_CLASS;
+  ph.className = PH_CLASS + (collapsed ? '' : ' qt-revealed');
   ph.setAttribute('data-qt-for', tweetId);
-  ph.setAttribute('role', 'button');
-  ph.setAttribute('tabindex', '0');
+  ph.setAttribute('data-qt-mode', mode);
+  if (collapsed) {
+    ph.setAttribute('role', 'button');
+    ph.setAttribute('tabindex', '0');
+  }
   applyTheme(ph);
 
   const text = document.createElement('div');
@@ -465,13 +475,17 @@ function buildPlaceholder(tweetId, info) {
   if (info.screenName) text.append(' @' + info.screenName);
 
   const reveal = () => {
-    state.revealed.add(tweetId);
+    state.concealed.delete(tweetId);
+    scanNow();
+  };
+  const conceal = () => {
+    state.concealed.add(tweetId);
     scanNow();
   };
   const actions = document.createElement('div');
   actions.className = 'qt-actions';
   actions.append(
-    button(s.show, 'qt-show', reveal),
+    collapsed ? button(s.show, 'qt-show', reveal) : button(s.hide, 'qt-hide', conceal),
     button(s.mute, 'qt-mute', (b) => {
       b.disabled = true;
       b.textContent = s.muting;
@@ -493,17 +507,20 @@ function buildPlaceholder(tweetId, info) {
   );
 
   ph.append(text, actions);
+  // Şeride tıklama tweeti açmasın (X'in tweet tıklama işleyicisine gitmesin).
   ph.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    reveal();
+    if (collapsed) reveal();
   });
-  ph.addEventListener('keydown', (e) => {
-    if (e.target === ph && (e.key === 'Enter' || e.key === ' ')) {
-      e.preventDefault();
-      reveal();
-    }
-  });
+  if (collapsed) {
+    ph.addEventListener('keydown', (e) => {
+      if (e.target === ph && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        reveal();
+      }
+    });
+  }
   return ph;
 }
 
@@ -544,13 +561,13 @@ function processArticle(article) {
     setHidden(cell, false);
   }
 
-  if (mode === 'collapse') {
-    if (ph && ph.getAttribute('data-qt-for') !== tweetId) {
+  if (mode === 'collapse' || mode === 'revealed') {
+    if (ph && (ph.getAttribute('data-qt-for') !== tweetId || ph.getAttribute('data-qt-mode') !== mode)) {
       ph.remove();
       ph = null;
     }
-    if (!ph) article.parentElement.insertBefore(buildPlaceholder(tweetId, info), article);
-    setHidden(article, true);
+    if (!ph) article.parentElement.insertBefore(buildPlaceholder(tweetId, info, mode), article);
+    setHidden(article, mode === 'collapse');
   } else {
     if (ph) ph.remove();
     // Hücre yoksa hücre = makale; reklam/sessiz durumda gizli kalmalı.

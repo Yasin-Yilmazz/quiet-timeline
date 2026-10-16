@@ -236,9 +236,12 @@ test('XHR: bozuk JSON orijinal haliyle geçer', () => {
   assert.equal(x.responseText, '{bozuk json');
 });
 
-// ------------------------------------------------------------ kapalı tweet arayüzü
+// ------------------------------------------------------------ düğme şeridi arayüzü
 
-test('anasayfa: mavi tikli tweet kapalı, diğerleri açık, reklam gizli', async () => {
+const buttons = (ph) => ph.querySelectorAll('button').map((b) => b.textContent);
+const mode = (art) => placeholder(art) && placeholder(art).getAttribute('data-qt-mode');
+
+test('anasayfa: mavi tikli tweet açık gelir, üstünde düğme şeridi var; reklam gizli', async () => {
   const ctx = makeEnv();
   const blue = tweetCell(ctx.doc, '1002');
   const normal = tweetCell(ctx.doc, '1001');
@@ -246,43 +249,61 @@ test('anasayfa: mavi tikli tweet kapalı, diğerleri açık, reklam gizli', asyn
   const ad = tweetCell(ctx.doc, '5555', { ad: true });
   await loadHome(ctx);
 
-  const ph = placeholder(blue.art);
-  assert.ok(ph, 'yer tutucu oluşmalı');
-  assert.ok(hidden(blue.art));
-  assert.ok(!hidden(blue.cell));
-  assert.match(ph.textContent, /Takip etmediğin mavi tikli hesap · Yabancı Mavi @yabanci_mavi/);
-  assert.deepEqual(
-    ph.querySelectorAll('button').map((b) => b.textContent),
-    ['Göster', 'Sessize al', 'Filtrelemeyi bırak']
-  );
+  const bar = placeholder(blue.art);
+  assert.ok(bar, 'şerit oluşmalı');
+  assert.equal(mode(blue.art), 'revealed');
+  assert.ok(!hidden(blue.art) && !hidden(blue.cell), 'tweet açık');
+  assert.match(bar.textContent, /Takip etmediğin mavi tikli hesap · Yabancı Mavi @yabanci_mavi/);
+  assert.deepEqual(buttons(bar), ['Gizle', 'Sessize al', 'Filtrelemeyi bırak']);
 
-  assert.ok(!placeholder(normal.art) && !hidden(normal.art), 'normal tweet açık');
+  bar.click(); // şeride tıklamak bir şey değiştirmez
+  assert.ok(!hidden(blue.art) && placeholder(blue.art) === bar);
+
+  assert.ok(!placeholder(normal.art) && !hidden(normal.art), 'normal tweette şerit yok');
   assert.ok(!placeholder(quote.art) && !hidden(quote.art), 'alıntı kutusu kararı etkilemez');
   assert.ok(!hidden(normal.cell), '"Ad" görünen adı reklam sayılmaz');
   assert.ok(hidden(ad.cell), 'reklam hücresi gizli');
+});
+
+test('Gizle kapatır, Göster veya kutuya tıklama tekrar açar', async () => {
+  const ctx = makeEnv();
+  const a = tweetCell(ctx.doc, '1002');
+  await loadHome(ctx);
+
+  placeholder(a.art).querySelector('button.qt-hide').click();
+  assert.ok(hidden(a.art), 'tweet kapalı');
+  assert.equal(mode(a.art), 'collapse');
+  assert.deepEqual(buttons(placeholder(a.art)), ['Göster', 'Sessize al', 'Filtrelemeyi bırak']);
+
+  placeholder(a.art).querySelector('button.qt-show').click();
+  assert.ok(!hidden(a.art));
+  assert.equal(mode(a.art), 'revealed');
+
+  placeholder(a.art).querySelector('button.qt-hide').click();
+  placeholder(a.art).click(); // kapalı kutuya tıklama da açar
+  assert.ok(!hidden(a.art));
+  assert.equal(mode(a.art), 'revealed');
+});
+
+test('Gizle yalnız o tweeti kapatır ve yeni yüklemede kapalı kalır', async () => {
+  const ctx = makeEnv();
+  const a = tweetCell(ctx.doc, '1002');
+  const b = tweetCell(ctx.doc, '1010'); // aynı hesap, başka tweet
+  await loadHome(ctx);
+  placeholder(a.art).querySelector('button.qt-hide').click();
+  assert.equal(mode(a.art), 'collapse');
+  assert.equal(mode(b.art), 'revealed');
+  await loadHome(ctx);
+  assert.equal(mode(a.art), 'collapse');
 });
 
 test('İngilizce arayüz', async () => {
   const ctx = makeEnv({ lang: 'en' });
   const blue = tweetCell(ctx.doc, '1002');
   await loadHome(ctx);
-  assert.deepEqual(
-    placeholder(blue.art).querySelectorAll('button').map((b) => b.textContent),
-    ['Show', 'Mute', 'Stop filtering']
-  );
-});
-
-test('Göster düğmesi ve yer tutucuya tıklama tweeti açar', async () => {
-  const ctx = makeEnv();
-  const a = tweetCell(ctx.doc, '1002');
-  const b = tweetCell(ctx.doc, '1010');
-  await loadHome(ctx);
-
-  placeholder(a.art).querySelector('button.qt-show').click();
-  assert.ok(!placeholder(a.art) && !hidden(a.art));
-
-  placeholder(b.art).click();
-  assert.ok(!placeholder(b.art) && !hidden(b.art));
+  assert.deepEqual(buttons(placeholder(blue.art)), ['Hide', 'Mute', 'Stop filtering']);
+  placeholder(blue.art).querySelector('button.qt-hide').click();
+  assert.deepEqual(buttons(placeholder(blue.art)), ['Show', 'Mute', 'Stop filtering']);
 });
 
 test('Sessize al: X\'e doğru istek gider, hesabın tüm tweetleri kaybolur', async () => {
@@ -292,7 +313,7 @@ test('Sessize al: X\'e doğru istek gider, hesabın tüm tweetleri kaybolur', as
   const other = tweetCell(ctx.doc, '1017'); // başka hesap (204)
   await loadHome(ctx, { headers: { Authorization: 'Bearer SAYFA_TOKENI' } });
 
-  placeholder(b.art).querySelector('button.qt-show').click(); // biri açılmış olsa da
+  placeholder(b.art).querySelector('button.qt-hide').click(); // biri kapalı olsa da
   placeholder(a.art).querySelector('button.qt-mute').click();
   await wait(20);
 
@@ -307,24 +328,36 @@ test('Sessize al: X\'e doğru istek gider, hesabın tüm tweetleri kaybolur', as
   assert.equal(call.init.headers['x-twitter-client-language'], 'tr');
 
   assert.ok(hidden(a.cell) && hidden(b.cell), 'sessize alınan hesabın hücreleri gizli');
-  assert.ok(!placeholder(a.art), 'yer tutucu kalkar');
-  assert.ok(placeholder(other.art), 'başka hesap etkilenmez');
+  assert.ok(!placeholder(a.art) && !placeholder(b.art), 'şerit/kutu kalkar');
+  assert.equal(mode(other.art), 'revealed', 'başka hesap etkilenmez');
 
   const json = await loadHome(ctx);
   assert.ok(!ids(json).includes('tweet-1002'), 'sonraki yüklemelerde de gelmez');
   assert.equal(ctx.calls.filter((c) => c.url === MUTE_URL).length, 1, 'yalnız tıklamada istek atılır');
 });
 
-test('Sessize al başarısız olursa tweet kapalı kalır ve hata yazılır', async () => {
+test('Sessize al başarısız olursa tweet yerinde kalır ve hata yazılır', async () => {
   const ctx = makeEnv({ muteStatus: 403 });
   const a = tweetCell(ctx.doc, '1002');
   await loadHome(ctx);
   const btn = placeholder(a.art).querySelector('button.qt-mute');
   btn.click();
   assert.equal(btn.textContent, 'Sessize alınıyor…');
+  assert.equal(btn.disabled, true);
   await wait(20);
   assert.equal(btn.textContent, 'Sessize alınamadı, tekrar dene');
-  assert.ok(placeholder(a.art) && hidden(a.art) && !hidden(a.cell));
+  assert.equal(btn.disabled, false);
+  assert.ok(placeholder(a.art) && !hidden(a.art) && !hidden(a.cell));
+});
+
+test('Filtrelemeyi bırak kapalı kutudan da çalışır', async () => {
+  const ctx = makeEnv();
+  const a = tweetCell(ctx.doc, '1017'); // 204
+  await loadHome(ctx);
+  placeholder(a.art).querySelector('button.qt-hide').click();
+  placeholder(a.art).querySelector('button.qt-allow').click();
+  assert.ok(!hidden(a.art) && !placeholder(a.art));
+  assert.equal(ctx.storage.getItem('quiet-timeline:allow'), '["204"]');
 });
 
 test('Sessize al: ct0 çerezi yoksa istek gönderilmez', async () => {

@@ -168,14 +168,15 @@ test('Takip edilenler + sessize alınan: PinEntry, AddToModule ve silinen modül
 
 // ------------------------------------------------------------ gösterim kararı
 
-test('decideDisplay: sessize alınan > filtresi bırakılan > açılan > kapalı', () => {
-  const st = (o = {}) => ({ mutedIds: new Set(o.muted || []), allowIds: new Set(o.allow || []), revealed: new Set(o.revealed || []) });
+test('decideDisplay: sessize alınan > filtresi bırakılan > gizlenen > açık şeritli (varsayılan)', () => {
+  const st = (o = {}) => ({ mutedIds: new Set(o.muted || []), allowIds: new Set(o.allow || []), concealed: new Set(o.concealed || []) });
   const info = { userId: '202' };
   assert.equal(decideDisplay(undefined, '1', st()), 'show');
-  assert.equal(decideDisplay(info, '1', st()), 'collapse');
-  assert.equal(decideDisplay(info, '1', st({ revealed: ['1'] })), 'show');
-  assert.equal(decideDisplay(info, '1', st({ allow: ['202'] })), 'show');
-  assert.equal(decideDisplay(info, '1', st({ muted: ['202'], allow: ['202'], revealed: ['1'] })), 'hide');
+  assert.equal(decideDisplay(info, '1', st()), 'revealed');
+  assert.equal(decideDisplay(info, '1', st({ concealed: ['1'] })), 'collapse');
+  assert.equal(decideDisplay(info, '2', st({ concealed: ['1'] })), 'revealed');
+  assert.equal(decideDisplay(info, '1', st({ concealed: ['1'], allow: ['202'] })), 'show');
+  assert.equal(decideDisplay(info, '1', st({ muted: ['202'], allow: ['202'], concealed: ['1'] })), 'hide');
 });
 
 // ------------------------------------------------------------ güvenlik / dayanıklılık

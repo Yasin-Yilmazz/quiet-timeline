@@ -62,7 +62,7 @@ Edge kullanıcıları Chrome Web Store'dan da kurabilir. Edge'in kendi mağazas�
 **Kısa açıklama (≤132 karakter)**
 
 ```
-Removes ads and collapses posts from paid-verified accounts you don't follow on your X/Twitter web home timeline.
+Removes ads and adds Hide/Mute controls to posts from paid-verified accounts you don't follow on X/Twitter web.
 ```
 
 **Uzun açıklama**
@@ -72,12 +72,12 @@ Quiet Timeline cleans up your home timeline on the X/Twitter website.
 
 What it does:
 • Removes all promoted posts (ads) completely, with no gaps
-• Collapses posts from paid blue-check accounts that you do not follow
+• Adds a small bar above posts from paid blue-check accounts that you do not follow
 
-Each collapsed post has three buttons:
-• Show: open the post
+The bar has three buttons:
+• Hide: collapse the post (click Show to open it again)
 • Mute: mute the account on X (also applies in the X mobile app)
-• Stop filtering: never collapse this account again
+• Stop filtering: never mark this account again
 
 What it keeps:
 • Accounts you follow (blue check or not)
@@ -96,7 +96,7 @@ Not affiliated with or endorsed by X Corp.
 **Tek amaç (single purpose)**
 
 ```
-Filters the user's X/Twitter web home timeline by removing promoted posts and collapsing posts from paid-verified accounts the user does not follow, with options to show, mute or stop filtering them.
+Filters the user's X/Twitter web home timeline by removing promoted posts and adding hide, mute and stop-filtering controls to posts from paid-verified accounts the user does not follow.
 ```
 
 **Host izni gerekçesi**
