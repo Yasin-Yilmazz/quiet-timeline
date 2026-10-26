@@ -34,7 +34,7 @@ Zip dosyalarını üretmek için önce `npm run build` komutunu çalıştırın.
    - **On this site (listed):** Eklenti AMO'da herkese açık listelenir ve insan incelemesinden geçebilir.
    - **On your own (unlisted):** Eklenti yalnızca imzalanır ve size `.xpi` olarak verilir. Listelenmez. Sadece kendiniz kalıcı olarak kullanmak istiyorsanız bunu seçin.
 3. `quiet-timeline-firefox.zip` dosyasını yükleyin. Otomatik doğrulama (linter) çalışır.
-4. **Kaynak kodu sorusu** ("Do you need to submit source code?"): `content.js`, build script'i tarafından `src/filter.js`, `src/mute.js` ve `src/inject.js` dosyaları **birleştirilerek** üretilir. Küçültme (minify) yoktur. İncelemeyi hızlandırmak için **Evet** deyin, `quiet-timeline-source.zip` dosyasını yükleyin ve not alanına şunu yazın: `npm run build (Node 18+, bağımlılık yok)`.
+4. **Kaynak kodu sorusu** ("Do you need to submit source code?"): `content.js`, build script'i tarafından `src/filter.js`, `src/mute.js` ve `src/inject.js` dosyaları **birleştirilerek**, `bridge.js` ise `src/bridge.js` dosyasından üretilir. Küçültme (minify) yoktur. İncelemeyi hızlandırmak için **Evet** deyin, `quiet-timeline-source.zip` dosyasını yükleyin ve not alanına şunu yazın: `npm run build (Node 18+, bağımlılık yok)`.
 5. Listed seçtiyseniz açıklama, kategori ("Social & Communication"), lisans ve ekran görüntülerini ekleyin. Ardından gönderin.
 6. Manifest'teki `data_collection_permissions: { required: ["none"] }` alanı, AMO'nun yeni eklentilerden istediği "veri toplanmıyor" beyanıdır.
 
@@ -88,7 +88,7 @@ What it keeps:
 
 Scope: only the home timeline ("For you" and "Following" tabs). Post details, profiles, search and notifications are untouched. Works on the desktop website only, not in the mobile apps.
 
-Privacy: no data collection, no analytics, no extra permissions. Everything runs locally in your browser. The only request the extension makes is the mute request it sends to x.com when you click Mute.
+Privacy: no data collection, no analytics, only the storage permission, used to remember the accounts you stopped filtering. Everything runs locally in your browser. The only request the extension makes is the mute request it sends to x.com when you click Mute.
 
 Not affiliated with or endorsed by X Corp.
 ```
@@ -108,5 +108,5 @@ The extension needs access to x.com and twitter.com to filter the home timeline 
 **Gizlilik beyanı**
 
 ```
-Quiet Timeline does not collect, transmit or sell any personal or usage data. It has no analytics and no tracking. All filtering happens locally in your browser, on x.com and twitter.com only. The extension reads the site's own login cookies in memory to recognise your own posts and, only when you click Mute, to send that mute request to x.com on your behalf. The list of accounts you chose to stop filtering is stored only in your browser's local storage for x.com. Nothing is sent to the developer or any third party.
+Quiet Timeline does not collect, transmit or sell any personal or usage data. It has no analytics and no tracking. All filtering happens locally in your browser, on x.com and twitter.com only. The extension reads the site's own login cookies in memory to recognise your own posts and, only when you click Mute, to send that mute request to x.com on your behalf. The list of accounts you chose to stop filtering is stored only in the extension's local storage in your browser. Nothing is sent to the developer or any third party.
 ```

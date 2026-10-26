@@ -55,7 +55,7 @@ Takip etmediğin mavi tikli hesap · Ad Soyad @kullanici   [Gizle] [Sessize al] 
 
 - **Gizle:** Gönderiyi kapatır. Yerinde **[Göster] [Sessize al] [Filtrelemeyi bırak]** düğmeli bir kutu kalır. **Göster** ya da kutuya tıklamak gönderiyi tekrar açar. Gizlediğiniz gönderi sayfa yenilenene kadar kapalı kalır.
 - **Sessize al:** Hesabı X hesabınızda sessize alır; X'te "Sessize al" demekle aynıdır. O hesabın gönderileri anında kaybolur ve bir daha anasayfanıza gelmez. Sessize alma X'te kayıtlı olduğu için **telefondaki X uygulamasında da geçerlidir**. Geri almak için X'te *Ayarlar → Gizlilik ve güvenlik → Sessize al ve engelle → Sessize alınan hesaplar* yolunu izleyin.
-- **Filtrelemeyi bırak:** O hesabın gönderilerinde şerit bir daha çıkmaz. Bu tercih yalnızca bu tarayıcıda, x.com'un yerel deposunda (localStorage) saklanır. Tarayıcı verilerini silerseniz liste sıfırlanır.
+- **Filtrelemeyi bırak:** O hesabın gönderilerinde şerit bir daha çıkmaz. Liste eklentinin kendi deposunda (`chrome.storage.local`) saklanır. x.com'dan çıkış yapmak, hesap değiştirmek ya da site verilerini temizlemek listeyi silmez. Liste x.com, twitter.com ve tüm açık sekmeler arasında ortaktır. Yalnızca eklentiyi kaldırırsanız silinir.
 
 **Dokunmaz:**
 
@@ -72,7 +72,7 @@ Takip etmediğin mavi tikli hesap · Ad Soyad @kullanici   [Gizle] [Sessize al] 
 
 **Çalışmadığı yerler:** X'in mobil (iOS/Android) uygulamaları. Eklenti yalnızca masaüstü tarayıcıdaki `x.com` ve `twitter.com` web sürümünde çalışır.
 
-**Gizlilik:** Ek izin yoktur (storage, tabs vb.); yalnızca `x.com` ve `twitter.com` eşleşmeleri vardır. Veri toplama ve analitik yoktur. Eklentinin kendi gönderdiği tek istek, **siz "Sessize al" düğmesine bastığınızda** x.com'a giden sessize alma isteğidir. Başka hiçbir sunucuya istek gönderilmez.
+**Gizlilik:** Tek izin `storage`'dır ve yalnızca "Filtrelemeyi bırak" listesini tutmak için kullanılır. Kurulumda uyarı göstermez. Bunun dışında yalnızca `x.com` ve `twitter.com` eşleşmeleri vardır. Veri toplama ve analitik yoktur. Eklentinin kendi gönderdiği tek istek, **siz "Sessize al" düğmesine bastığınızda** x.com'a giden sessize alma isteğidir. Başka hiçbir sunucuya istek gönderilmez.
 
 ---
 
@@ -133,8 +133,9 @@ src/
   filter.js        Saf filtre: reklamları çıkarır, mavi tiklileri işaretler (flagged); decideDisplay
   mute.js          "Sessize al" isteğini oluşturur (x.com'un kendi uç noktası)
   inject.js        fetch/XHR yamaları, kimlik tespiti, düğme şeridi arayüzü, /home DOM katmanı, DEBUG
+  bridge.js        "Filtrelemeyi bırak" listesini eklenti deposunda tutan köprü (ISOLATED world)
 scripts/
-  build.js         İki manifest, content.js paketi, ikonlar, zip'ler
+  build.js         İki manifest, content.js ve bridge.js paketleri, ikonlar, zip'ler
   lib.js           CRC32, PNG kodlayıcı, ikon çizimi, ZIP yazıcı
 tests/
   fixtures/        Gerçekçi HomeTimeline / HomeLatestTimeline JSON örnekleri
@@ -162,7 +163,7 @@ DOM yedek katmanı yalnızca `/home` yolunda çalışır. API filtresinden kaça
 
 ### Test sonuçları
 
-`npm test` komutu 76 test çalıştırır ve hepsi geçer. Kapsanan durumlar: takip edilen ve edilmeyen mavi tik, altın tik, gri tik, tiksiz hesap, iki tür reklam, RT, alıntı, TweetWithVisibilityResults, konuşma modülleri, PinEntry, AddToModule, kendi tweetiniz, eksik alanlar, eski ve yeni şema, bozuk girdiler, fetch/XHR yamaları, düğme şeridi arayüzü (varsayılan açık şerit, Gizle ve Göster, Sessize al ve başarısızlığı, Filtrelemeyi bırak, sanal liste hücre değişimi), sessize alma isteği ve manifest kuralları.
+`npm test` komutu 82 test çalıştırır ve hepsi geçer. Kapsanan durumlar: takip edilen ve edilmeyen mavi tik, altın tik, gri tik, tiksiz hesap, iki tür reklam, RT, alıntı, TweetWithVisibilityResults, konuşma modülleri, PinEntry, AddToModule, kendi tweetiniz, eksik alanlar, eski ve yeni şema, bozuk girdiler, fetch/XHR yamaları, düğme şeridi arayüzü (varsayılan açık şerit, Gizle ve Göster, Sessize al ve başarısızlığı, Filtrelemeyi bırak, sanal liste hücre değişimi), kalıcı liste köprüsü (localStorage silinmesi, eski listenin taşınması, sekmeler arası eşitleme), sessize alma isteği ve manifest kuralları.
 
 ### Gerçek oturumda elle doğrulama
 

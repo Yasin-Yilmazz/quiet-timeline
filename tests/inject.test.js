@@ -9,7 +9,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const { bundleContentScript } = require('../scripts/build');
+const { bundleContentScript, bundleBridgeScript } = require('../scripts/build');
 const { Document, h } = require('./helpers/fake-dom');
 
 const FIX = path.join(__dirname, 'fixtures');
@@ -21,6 +21,7 @@ const DETAIL_URL = 'https://x.com/i/api/graphql/abc/TweetDetail?variables=%7B%7D
 const MUTE_URL = 'https://x.com/i/api/1.1/mutes/users/create.json';
 const PROMO = 'promoted-tweet-1006-a1b2c3';
 const BUNDLE = bundleContentScript();
+const BRIDGE = bundleBridgeScript();
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -78,6 +79,43 @@ function fakeStorage(initial = {}) {
   };
 }
 
+// Aynı penceredeki MAIN ve ISOLATED dünyalar postMessage'ı paylaşır.
+function attachBus(bus, win) {
+  win.addEventListener = (type, fn) => {
+    // Bağlam içindeki `window`, vm'nin sardığı global nesnedir; e.source onunla eşleşmeli.
+    if (type === 'message') bus.push({ win: vm.runInContext('globalThis', win), fn });
+  };
+  win.postMessage = (data) => {
+    const copy = structuredClone(data);
+    setTimeout(() => bus.forEach((l) => l.fn({ data: structuredClone(copy), source: l.win })), 0);
+  };
+}
+
+// Sekmeler arasında ortak eklenti deposu (chrome.storage.local).
+function fakeChrome(data = {}) {
+  const listeners = [];
+  return {
+    data,
+    runtime: { lastError: undefined },
+    storage: {
+      local: {
+        get: (_, cb) => setTimeout(() => cb(Object.assign({}, data)), 0),
+        set: (items, cb) =>
+          setTimeout(() => {
+            const changes = {};
+            for (const k of Object.keys(items)) {
+              if (data[k] !== items[k]) changes[k] = { newValue: items[k] };
+              data[k] = items[k];
+            }
+            if (Object.keys(changes).length) listeners.forEach((fn) => fn(changes, 'local'));
+            if (cb) cb();
+          }, 0),
+      },
+      onChanged: { addListener: (fn) => listeners.push(fn) },
+    },
+  };
+}
+
 function makeEnv({
   cookie = `twid=u%3D${SELF}; ct0=abc123def; lang=tr`,
   initialState,
@@ -85,6 +123,7 @@ function makeEnv({
   muteStatus = 200,
   storage = fakeStorage(),
   lang = 'tr',
+  chrome = null, // verilirse köprü (bridge.js) de çalışır
 } = {}) {
   const doc = new Document();
   doc.cookie = cookie;
@@ -114,6 +153,15 @@ function makeEnv({
   if (initialState) sandbox.__INITIAL_STATE__ = initialState;
   sandbox.window = sandbox;
   vm.createContext(sandbox);
+  if (chrome) {
+    const bus = [];
+    attachBus(bus, sandbox);
+    const iso = { chrome, location: sandbox.location };
+    iso.window = iso;
+    attachBus(bus, iso);
+    vm.createContext(iso);
+    vm.runInContext(BRIDGE, iso, { filename: 'bridge.js' });
+  }
   vm.runInContext(BUNDLE, sandbox, { filename: 'content.js' });
   return { env: sandbox, doc, calls, storage };
 }
@@ -441,4 +489,68 @@ test('tırnaklı twid çerezi de okunur', async () => {
   const a = tweetCell(ctx.doc, '1002');
   await loadHome(ctx);
   assert.ok(placeholder(a.art));
+});
+
+// ------------------------------------------------------------ kalıcı liste (köprü)
+
+test('köprü: Filtrelemeyi bırak eklenti deposuna da yazılır', async () => {
+  const chrome = fakeChrome();
+  const ctx = makeEnv({ chrome });
+  const a = tweetCell(ctx.doc, '1002'); // 202
+  await loadHome(ctx);
+  placeholder(a.art).querySelector('button.qt-allow').click();
+  await wait(20);
+  assert.equal(chrome.data['allow:202'], 1);
+});
+
+test('köprü: x.com localStorage silinse de hesap filtrelenmez', async () => {
+  const chrome = fakeChrome({ 'allow:202': 1 });
+  const storage = fakeStorage(); // X ya da tarayıcı temizlemiş
+  const ctx = makeEnv({ chrome, storage });
+  const a = tweetCell(ctx.doc, '1002');
+  const b = tweetCell(ctx.doc, '1017'); // 204
+  await wait(20);
+  await loadHome(ctx);
+  assert.ok(!placeholder(a.art), 'izin verilen hesap açık');
+  assert.ok(placeholder(b.art), 'diğer hesaplar işaretli');
+  assert.equal(storage.getItem('quiet-timeline:allow'), '["202"]', 'yerel önbellek onarıldı');
+});
+
+test('köprü: liste geç gelse de şerit kalkar', async () => {
+  const chrome = fakeChrome({ 'allow:202': 1 });
+  const ctx = makeEnv({ chrome });
+  const a = tweetCell(ctx.doc, '1002');
+  await loadHome(ctx); // köprü cevabından önce de olabilir
+  await wait(150);
+  assert.ok(!placeholder(a.art) && !hidden(a.art));
+});
+
+test('köprü: eski sürümün localStorage listesi depoya taşınır', async () => {
+  const chrome = fakeChrome();
+  makeEnv({ chrome, storage: fakeStorage({ 'quiet-timeline:allow': '["202","204"]' }) });
+  await wait(20);
+  assert.equal(chrome.data['allow:202'], 1);
+  assert.equal(chrome.data['allow:204'], 1);
+});
+
+test('köprü: başka sekmede (twitter.com dahil) bırakılan hesap bu sekmede de açılır', async () => {
+  const chrome = fakeChrome();
+  const tab1 = makeEnv({ chrome });
+  const tab2 = makeEnv({ chrome, storage: fakeStorage() });
+  const a = tweetCell(tab1.doc, '1002');
+  const b = tweetCell(tab2.doc, '1020'); // aynı hesap (202)
+  await loadHome(tab1);
+  await loadHome(tab2);
+  assert.ok(placeholder(b.art));
+  placeholder(a.art).querySelector('button.qt-allow').click();
+  await wait(150);
+  assert.ok(!placeholder(b.art) && !hidden(b.art));
+});
+
+test('köprü: sayfadan gelen geçersiz kimlikler depoya yazılmaz', async () => {
+  const chrome = fakeChrome();
+  const ctx = makeEnv({ chrome });
+  ctx.env.postMessage({ source: 'quiet-timeline:page', allowIds: ['12', 'abc', 5, '1'.repeat(40)] });
+  await wait(20);
+  assert.deepEqual(Object.keys(chrome.data), ['allow:12']);
 });

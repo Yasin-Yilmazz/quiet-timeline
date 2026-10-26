@@ -8,19 +8,23 @@ const { chromeManifest, firefoxManifest } = require('../scripts/build');
 const { drawIcon, createZip, crc32 } = require('../scripts/lib');
 
 for (const [name, m] of [['chrome', chromeManifest()], ['firefox', firefoxManifest()]]) {
-  test(`${name} manifest: MV3, MAIN world, document_start, izin yok`, () => {
+  test(`${name} manifest: MV3, MAIN world + köprü, document_start, yalnız storage izni`, () => {
     assert.equal(m.manifest_version, 3);
     assert.equal(m.name, 'Quiet Timeline');
     assert.ok(!/twitter|\bX\b/i.test(m.name));
     assert.ok(m.description.length <= 132, 'Chrome açıklama sınırı 132 karakter');
-    assert.equal(m.permissions, undefined);
+    assert.deepEqual(m.permissions, ['storage']);
     assert.equal(m.host_permissions, undefined);
     assert.equal(m.background, undefined);
-    assert.equal(m.content_scripts.length, 1);
-    const cs = m.content_scripts[0];
+    assert.equal(m.content_scripts.length, 2);
+    const [cs, br] = m.content_scripts;
     assert.deepEqual(cs.matches, ['https://x.com/*', 'https://twitter.com/*']);
     assert.equal(cs.world, 'MAIN');
     assert.equal(cs.run_at, 'document_start');
+    assert.deepEqual(br.js, ['bridge.js']);
+    assert.deepEqual(br.matches, cs.matches);
+    assert.equal(br.world, undefined, 'köprü ISOLATED world\'de çalışır');
+    assert.equal(br.run_at, 'document_start');
     assert.deepEqual(Object.keys(m.icons), ['16', '32', '48', '128']);
   });
 }

@@ -9,6 +9,7 @@
  * - Reklamlar API cevabından tamamen çıkarılır.
  * - Takip edilmeyen mavi tikli tweetlerin üstüne düğme şeridi eklenir:
  *   [Gizle] [Sessize al] [Filtrelemeyi bırak]
+ * - "Filtrelemeyi bırak" listesi bridge.js üzerinden eklenti deposunda saklanır.
  */
 
 const DEBUG = false;
@@ -26,11 +27,13 @@ function log() {
 // ---------------------------------------------------------------- durum
 
 const ALLOW_KEY = 'quiet-timeline:allow';
+const FROM_PAGE = 'quiet-timeline:page';
+const FROM_BRIDGE = 'quiet-timeline:bridge';
 const FLAG_LIMIT = 5000;
 
 const state = {
   flagged: new Map(), // tweetId → { userId, screenName, name }
-  allowIds: loadAllow(), // filtresi bırakılan hesaplar (kalıcı, x.com localStorage)
+  allowIds: loadAllow(), // filtresi bırakılan hesaplar (asıl kayıt köprüde; localStorage hızlı önbellek)
   mutedIds: new Set(), // bu oturumda sessize alınanlar (kalıcı kayıt X'te)
   concealed: new Set(), // Gizle ile kapatılan tweetler (bu sayfa oturumu)
   bearer: null, // sayfanın kendi isteklerinden yakalanır
@@ -45,8 +48,22 @@ function loadAllow() {
   }
 }
 
+// Yalnızca ekler; listede çıkarma yok. Yeni hesap geldiyse true.
+function mergeAllow(ids) {
+  let added = false;
+  for (const id of ids) {
+    if (typeof id === 'string' && /^\d+$/.test(id) && !state.allowIds.has(id)) {
+      state.allowIds.add(id);
+      added = true;
+    }
+  }
+  return added;
+}
+
 function saveAllow() {
   try {
+    // Başka sekmenin yazdıklarını ezmemek için önce depodakini birleştir.
+    mergeAllow(loadAllow());
     localStorage.setItem(ALLOW_KEY, JSON.stringify(Array.from(state.allowIds)));
   } catch (_) {
     /* depolama kapalı: yalnız bu oturumda geçerli */
@@ -62,6 +79,34 @@ function rememberFlags(list) {
     }
   }
   while (state.flagged.size > FLAG_LIMIT) state.flagged.delete(state.flagged.keys().next().value);
+}
+
+// Köprü (bridge.js) listeyi eklenti deposunda kalıcı tutar; sayfa yalnızca
+// postMessage ile konuşabilir. Köprü yoksa (eski kurulum, test) localStorage yeter.
+function sendAllowToBridge(ids) {
+  try {
+    window.postMessage({ source: FROM_PAGE, allowIds: ids }, location.origin);
+  } catch (_) {
+    /* köprü yok */
+  }
+}
+
+function startAllowSync() {
+  let bridgeSeen = false;
+  window.addEventListener('message', (e) => {
+    const d = e.data;
+    if (e.source !== window || !d || d.source !== FROM_BRIDGE || !Array.isArray(d.allowIds)) return;
+    // İlk cevapta yerel listeyi köprüye aktar (eski sürümden kalan kayıtlar, yükleme sırası).
+    if (!bridgeSeen) {
+      bridgeSeen = true;
+      sendAllowToBridge(Array.from(state.allowIds));
+    }
+    if (mergeAllow(d.allowIds)) {
+      saveAllow();
+      scheduleScan();
+    }
+  });
+  sendAllowToBridge(Array.from(state.allowIds));
 }
 
 // ---------------------------------------------------------------- kendi kimliğim
@@ -502,6 +547,7 @@ function buildPlaceholder(tweetId, info, mode) {
     button(s.allow, 'qt-allow', () => {
       state.allowIds.add(info.userId);
       saveAllow();
+      sendAllowToBridge([info.userId]);
       scanNow();
     })
   );
@@ -628,10 +674,7 @@ function startDomLayer() {
   // Başka sekmede "Filtrelemeyi bırak" denirse bu sekme de güncellensin.
   try {
     window.addEventListener('storage', (e) => {
-      if (e.key === ALLOW_KEY) {
-        state.allowIds = loadAllow();
-        scheduleScan();
-      }
+      if (e.key === ALLOW_KEY && mergeAllow(loadAllow())) scheduleScan();
     });
   } catch (_) {
     /* önemsiz */
@@ -649,6 +692,11 @@ try {
   patchXHR();
 } catch (e) {
   log('XHR yaması başarısız', e);
+}
+try {
+  startAllowSync();
+} catch (e) {
+  log('liste eşitleme başarısız', e);
 }
 try {
   startDomLayer();

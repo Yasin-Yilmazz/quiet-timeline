@@ -25,12 +25,20 @@ function baseManifest() {
     version: pkg.version,
     description: pkg.description,
     icons,
+    // Yalnızca "Filtrelemeyi bırak" listesi için; kurulumda uyarı göstermez.
+    permissions: ['storage'],
     content_scripts: [
       {
         matches: MATCHES,
         js: ['content.js'],
         run_at: 'document_start',
         world: 'MAIN',
+        all_frames: false,
+      },
+      {
+        matches: MATCHES,
+        js: ['bridge.js'],
+        run_at: 'document_start',
         all_frames: false,
       },
     ],
@@ -79,6 +87,16 @@ function bundleContentScript() {
   return parts.join('\n');
 }
 
+function bundleBridgeScript() {
+  return [
+    `/*! Quiet Timeline v${pkg.version} — derlenmiş dosya, kaynak: src/bridge.js */`,
+    '(function () {',
+    fs.readFileSync(path.join(ROOT, 'src/bridge.js'), 'utf8'),
+    '})();',
+    '',
+  ].join('\n');
+}
+
 function listFiles(dir, base = dir) {
   const out = [];
   for (const e of fs.readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
@@ -92,6 +110,7 @@ function listFiles(dir, base = dir) {
 function build() {
   fs.rmSync(DIST, { recursive: true, force: true });
   const content = bundleContentScript();
+  const bridge = bundleBridgeScript();
   const icons = ICON_SIZES.map((s) => [s, drawIcon(s)]);
 
   // Depoda da görünür olsun (README / mağaza için).
@@ -104,6 +123,7 @@ function build() {
     fs.mkdirSync(path.join(dir, 'icons'), { recursive: true });
     fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
     fs.writeFileSync(path.join(dir, 'content.js'), content);
+    fs.writeFileSync(path.join(dir, 'bridge.js'), bridge);
     for (const [s, png] of icons) fs.writeFileSync(path.join(dir, 'icons', `icon-${s}.png`), png);
 
     const zipPath = path.join(DIST, `quiet-timeline-${name}.zip`);
@@ -126,4 +146,4 @@ function build() {
 
 if (require.main === module) build();
 
-module.exports = { build, bundleContentScript, chromeManifest, firefoxManifest };
+module.exports = { build, bundleContentScript, bundleBridgeScript, chromeManifest, firefoxManifest };
